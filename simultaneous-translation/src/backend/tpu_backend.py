@@ -48,15 +48,40 @@ class TPUBackend(BackendBase):
         return self._device
 
     def wrap_model(self, model: nn.Module) -> nn.Module:
-        from torch_xla.experimental.spmd_fully_sharded_data_parallel import (
-            SpmdFullyShardedDataParallel as FSDPv2,
-        )
         # Gradient checkpointing MUST be enabled BEFORE FSDPv2 wrapping
         # (torch_xla requirement -- otherwise infinite recursion)
         if hasattr(model, "backbone") and hasattr(model.backbone, "model"):
             model.backbone.model.gradient_checkpointing_enable()
 
-        model = FSDPv2(model, mesh=self._mesh)
+        num_devices = self.world_size()
+        if num_devices <= 1:
+            # Single chip -- no sharding needed, just return as-is
+            print("TPU: single chip, skipping FSDPv2 wrapping")
+            return model
+
+        from torch_xla.experimental.spmd_fully_sharded_data_parallel import (
+            SpmdFullyShardedDataParallel as FSDPv2,
+        )
+        from torch.nn import Embedding
+
+        # Wrap transformer layers with FSDPv2 but keep embeddings unsharded.
+        # FSDPv2 shards weight tensors across the mesh, which breaks our
+        # offset-based embedding indexing (audio_codes + 262148).
+        # Use auto_wrap_policy to only shard the heavy transformer blocks.
+        def _wrap_policy(module, recurse, **kwargs):
+            if recurse:
+                return True
+            # Don't wrap embedding layers -- they use offset-based indexing
+            if isinstance(module, Embedding):
+                return False
+            # Wrap transformer layers (the heavy computation)
+            layer_types = (
+                "CohereDecoderLayer",  # TinyAya backbone layers
+                "MoshiDecoderLayer",   # Depth decoder layers
+            )
+            return type(module).__name__ in layer_types
+
+        model = FSDPv2(model, mesh=self._mesh, auto_wrap_policy=_wrap_policy)
         return model
 
     def optimizer_step(self, optimizer: torch.optim.Optimizer) -> None:
