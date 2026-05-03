@@ -4,18 +4,20 @@
 backend: tpu
 
 data:
-  encoded_dir: data/encoded
-  train_split: data/splits/train.jsonl
-  val_split: data/splits/val.jsonl
+  encoded_dir: /mnt/data/encoded
+  train_split: /mnt/data/splits/train.jsonl
+  val_split: /mnt/data/splits/val.jsonl
   max_frames: 300
   audio_frame_rate: 12.5
+  num_workers: 4
+  pin_memory: false
 
 train:
   num_codebooks: 8
   batch_size: 2
   grad_accum: 2
   # Effective batch = batch_size * grad_accum * num_chips
-  # With 64 chips: 2 * 2 * 64 = 256
+  # v4-64 = 32 chips: 2 * 2 * 32 = 128
   max_steps: 5000
   warmup_steps: 500
   depth_chunk_size: 16
@@ -38,8 +40,8 @@ logging:
   save_every: 500
   audio_every: 1000
   val_every: 1000
-  save_dir: checkpoints/stage2-tpu
-  # For GCS: save_dir: gs://tinyaya-checkpoints/stage2-tpu
+  save_dir: gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu
   keep_last_n: 3
   use_wandb: true
   wandb_project: tinyaya-stage2-tpu
+  wandb_run_name: v4-64-on-demand
