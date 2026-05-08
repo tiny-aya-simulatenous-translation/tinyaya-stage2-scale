@@ -908,38 +908,47 @@ def main():
         # and detects exploding gradients, at ~5-15% throughput cost.
         if is_tpu:
             import torch_xla.core.xla_model as _xm
-            max_grad_norm = cfg["train"].get("max_grad_norm", 1.0)
-            # Fused single-graph clip (variant 6a).
-            # iter 22 fix: iterate by `p.requires_grad` (a STATIC
-            # attribute of each parameter) rather than `p.grad is
-            # not None` (a DYNAMIC attribute that can change per
-            # step). Iter 21 hit a permanent OOM compile at step
-            # 258 because the set of params with non-None grads
-            # changed across steps, producing a new HLO graph that
-            # required 89 GiB HLO temp. Iterating by requires_grad
-            # keeps the graph topology stable, and ensures any
-            # parameter without a current gradient contributes 0 to
-            # total_sq_norm via a freshly allocated zero tensor.
-            total_sq = torch.tensor(0.0, device=device)
-            for p in model.parameters():
-                if not p.requires_grad:
-                    continue
-                if p.grad is None:
-                    p.grad = torch.zeros_like(p)
-                total_sq = total_sq + (p.grad.float() ** 2).sum()
-            total_norm = total_sq.sqrt()
-            clip_coef = max_grad_norm / (total_norm + 1e-6)
-            clip_coef = torch.where(
-                clip_coef < 1.0, clip_coef, torch.ones_like(clip_coef)
+            # iter 23: lever 6 (fused clip) is gated behind a config
+            # flag. Both iter 21 (vanilla clip) and iter 22 (clip with
+            # set_to_none=False + requires_grad iteration) OOM-crashed
+            # at step 258 with an HLO temp of 89 GiB. The crash was
+            # bit-deterministic across runs (same seed, same data) and
+            # was triggered by a NEW graph hash compiled on the lever
+            # 6 mark_step at step 258. Even after stabilising the
+            # iteration set with requires_grad, FSDPv2 evidently still
+            # reshards or otherwise produces a fresh graph for that
+            # specific batch, and the new graph happens to need 5.7x
+            # the steady-state HBM. Until we can root-cause that
+            # recompile, this run keeps lever 6 OFF (matches iter 18c)
+            # and trades the train/grad_norm metric for run stability.
+            enable_clip = bool(
+                cfg["train"].get("enable_clip_grad_norm", False)
             )
-            for p in model.parameters():
-                if not p.requires_grad:
-                    continue
-                if p.grad is None:
-                    p.grad = torch.zeros_like(p)
-                p.grad.mul_(clip_coef)
-            _xm.mark_step()
-            grad_norm = total_norm
+            if enable_clip:
+                max_grad_norm = cfg["train"].get("max_grad_norm", 1.0)
+                total_sq = torch.tensor(0.0, device=device)
+                for p in model.parameters():
+                    if not p.requires_grad:
+                        continue
+                    if p.grad is None:
+                        p.grad = torch.zeros_like(p)
+                    total_sq = total_sq + (p.grad.float() ** 2).sum()
+                total_norm = total_sq.sqrt()
+                clip_coef = max_grad_norm / (total_norm + 1e-6)
+                clip_coef = torch.where(
+                    clip_coef < 1.0, clip_coef, torch.ones_like(clip_coef)
+                )
+                for p in model.parameters():
+                    if not p.requires_grad:
+                        continue
+                    if p.grad is None:
+                        p.grad = torch.zeros_like(p)
+                    p.grad.mul_(clip_coef)
+                _xm.mark_step()
+                grad_norm = total_norm
+            else:
+                _xm.mark_step()
+                grad_norm = torch.tensor(0.0)
         else:
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 model.parameters(), cfg["train"]["max_grad_norm"]

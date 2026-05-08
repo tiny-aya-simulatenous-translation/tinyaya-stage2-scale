@@ -54,6 +54,11 @@ train:
   # warmup_steps=200 = 4% of total (standard 1-5% warmup band).
   max_steps: 5000
   warmup_steps: 200
+  # iter 23: gate lever 6 (fused clip_grad_norm). Iter 21/22 both
+  # OOM'd at step 258 inside the lever 6 mark_step compile (89 GiB
+  # HLO temp on a 31 GiB chip). Disabling clip lets the long run
+  # complete; train/grad_norm wandb metric will read 0.0.
+  enable_clip_grad_norm: false
   depth_chunk_size: 16
   # iter 14: bf16 with attention-mask monkey-patch (train_hierarchical.py
   # _patch_attention_mask_for_bf16 clamps mask values >= -1e4 to avoid
