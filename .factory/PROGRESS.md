@@ -26,6 +26,45 @@ moved to `.factory/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-05-08T09:11:53Z | feat/tpu-support@2400ada | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/backend/tpu_backend.py`
+
+
+## 2026-05-08T08:44:48Z | feat/tpu-support@2400ada | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
+## 2026-05-08T08:43:50Z | feat/tpu-support@2400ada | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-05-08T08:43:12Z | feat/tpu-support@2400ada | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-05-08T08:42:54Z | feat/tpu-support@2400ada | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-05-08T08:42:38Z | feat/tpu-support@2400ada | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/backend/tpu_backend.py`
+
+
+## 2026-05-08T08:42:08Z | feat/tpu-support@2400ada | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/backend/tpu_backend.py`
+
+
+## 2026-05-08T08:38:38Z | feat/tpu-support@2400ada | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/backend/tpu_backend.py`
+
+
+## 2026-05-08T08:33:11Z | feat/tpu-support@2400ada | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # CLI entry point loads and prints help
+    ModuleNotFoundError: No module named 'src.config'
+
+
 ## 2026-05-08T07:56:19Z | feat/tpu-support@3c629da | done | edit
 edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
 

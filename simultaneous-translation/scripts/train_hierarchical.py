@@ -794,62 +794,17 @@ def main():
             "audio": torch.tensor(0.0, device=device),
         }
 
-    # iter 18 lever 4: auto-capture a 30s profiler trace at step 30.
-    # Spans steps ~30-43 at 2.36s/step -> covers compile-cache-warm
-    # steady state. Trace lands at /tmp/xla_profile/iter18-<ts>/ and
-    # the launcher post-train hook gsutil-uploads to GCS.
-    profile_logdir = None
-    profile_thread = None
-    if is_tpu and is_main:
-        ts = int(time.time())
-        profile_logdir = f"/tmp/xla_profile/iter18-{ts}"
-        try:
-            os.makedirs(profile_logdir, exist_ok=True)
-        except Exception as e:
-            print(f"[profiler] mkdir {profile_logdir} failed: {e}", flush=True)
-            profile_logdir = None
+    # iter 19 lever 4 fix: profiler capture must happen from a SEPARATE
+    # process, not from a background thread in the training process.
+    # The in-process auto-capture failed with "Connection refused"
+    # because xp.trace() could not connect to its own xp.start_server
+    # (per pytorch/xla capture_profile.py pattern -- the server is
+    # meant to be queried from an external process). The launcher
+    # script now handles this by SSH'ing back and running
+    # capture_profile.py after the first compile completes (~10 min).
+    # xp.start_server(9012) at startup still works and is kept.
 
     while step < max_steps:
-        # iter 18 lever 4: kick off a background trace capture once we
-        # are past the first few compile cycles.
-        if (
-            is_tpu and is_main and step == 30
-            and profile_thread is None and profile_logdir is not None
-        ):
-            try:
-                import threading as _threading
-                import torch_xla.debug.profiler as xp
-
-                def _capture():
-                    try:
-                        xp.trace(
-                            f"localhost:{int(os.environ.get('XLA_PROFILER_PORT', '9012'))}",
-                            profile_logdir,
-                            duration_ms=30000,
-                        )
-                        print(f"[profiler] trace captured to {profile_logdir}",
-                              flush=True)
-                    except Exception as ex:
-                        print(f"[profiler] capture failed: {ex}", flush=True)
-
-                profile_thread = _threading.Thread(target=_capture, daemon=True)
-                profile_thread.start()
-                print(f"[profiler] trace capture started -> {profile_logdir}",
-                      flush=True)
-            except Exception as e:
-                print(f"[profiler] trace start failed: {e}", flush=True)
-
-        # iter 18 lever 4: per-step profiler scope removed.
-        # Both xp.StepTrace AND xp.Trace open an XLA "scope" that is
-        # asserted-empty by `_xla_step_marker` on every mark_step
-        # call. Our step body already issues 2-3 mark_steps (macro
-        # step + logging + diagnose), so any wrapping scope triggers
-        # `RuntimeError: Expecting scope to be empty but it is ...`.
-        # The auto-captured 30s trace at step 30 (via xp.trace into
-        # a logdir) still shows the full HLO timeline with mark_step
-        # events; we just lose the per-step text labels in TensorBoard.
-        _step_trace = None
-
         # grad accumulation micro-steps
         if is_tpu:
             micro_loss_sum_xla = torch.tensor(0.0, device=device)
@@ -918,44 +873,43 @@ def main():
                 micro_audio += losses["audio_loss"].item()
                 micro_per_cb += losses["per_codebook_loss"].detach().cpu()
 
-        # macro-step.
-        # On FSDPv2 SPMD, torch.nn.utils.clip_grad_norm_ deadlocks at
-        # the all-reduce barrier with heterogeneous parameter groups.
-        # The official FSDPv2 example
-        # (https://github.com/pytorch/xla/blob/master/examples/fsdp/
-        # train_decoder_only_fsdp_v2.py) skips gradient clipping
-        # entirely. We follow that pattern on TPU and surface the
-        # grad_norm only on GPU/CPU. See HF transformers #41881 and
-        # pytorch/xla #3424 for the underlying deadlock pattern.
-        #
-        # iter 18 (lever 6 -- DEFERRED to iter 19+):
+        # macro-step -- gradient clipping.
+        # On FSDPv2 SPMD, vanilla torch.nn.utils.clip_grad_norm_
+        # deadlocks at the all-reduce barrier with heterogeneous
+        # parameter groups (HF #41881, pytorch/xla #3424).
         # Single-host v6e-8 SPMD invalidates the cross-host deadlock
-        # concern (no inter-host all-reduce; SPMD partitioner emits a
-        # single xla::all_reduce HLO op). Only the per-param graph-
-        # break storm remains as a re-enable risk. Three known-safe
-        # variants for re-enabling on single-host v6e-8:
+        # concern (no inter-host all-reduce), but the per-param
+        # graph-break storm from vanilla clip_grad_norm_ remains
+        # (~550 graph breaks per step under FSDPv2).
         #
-        #   6a. Fused single-graph clip (preferred):
-        #       total_sq = sum((g.float()**2).sum() for g in grads)
-        #       coef = max_norm / (total_sq.sqrt() + 1e-6)
-        #       coef = torch.where(coef < 1.0, coef, torch.ones_like(coef))
-        #       for p in params: p.grad.mul_(coef)
-        #       xm.mark_step()
-        #     -> 1 fused HLO, ~5-15% throughput cost, populates metric
-        #
-        #   6b. clip_grad_value_(parameters, max_value):
-        #       element-wise clamp_; smallest graph; loses norm metric
-        #
-        #   6c. vanilla torch.nn.utils.clip_grad_norm_(...,
-        #       error_if_nonfinite=False):
-        #       per-param graph break (~550/step under FSDPv2); high
-        #       recompile risk; not recommended for v6e-8.
-        #
-        # See .factory/memories.md "lever 6 variants" for full details.
+        # iter 19 lever 6: re-enable gradient clipping on TPU using
+        # variant 6a -- a fused single-graph clip that avoids .item()
+        # and produces a single fused HLO computation. The pattern:
+        #   1. Accumulate total_sq_norm from all grad tensors (fused)
+        #   2. Compute clip_coef = max_norm / (total_norm + eps)
+        #   3. Apply torch.where to conditionally scale grads
+        #   4. Single xm.mark_step() fence for the entire clip
+        # This populates the train/grad_norm wandb metric (was 0.0)
+        # and detects exploding gradients, at ~5-15% throughput cost.
         if is_tpu:
             import torch_xla.core.xla_model as _xm
+            max_grad_norm = cfg["train"].get("max_grad_norm", 1.0)
+            # Fused single-graph clip (variant 6a)
+            total_sq = torch.tensor(0.0, device=device)
+            for p in model.parameters():
+                if p.grad is not None:
+                    total_sq = total_sq + (p.grad.float() ** 2).sum()
+            total_norm = total_sq.sqrt()
+            clip_coef = max_grad_norm / (total_norm + 1e-6)
+            # Only clip if coef < 1 (i.e. norm exceeds max_grad_norm)
+            clip_coef = torch.where(
+                clip_coef < 1.0, clip_coef, torch.ones_like(clip_coef)
+            )
+            for p in model.parameters():
+                if p.grad is not None:
+                    p.grad.mul_(clip_coef)
             _xm.mark_step()
-            grad_norm = torch.tensor(0.0)
+            grad_norm = total_norm
         else:
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 model.parameters(), cfg["train"]["max_grad_norm"]

@@ -70,6 +70,7 @@ from __future__ import annotations
 
 import os
 from contextlib import nullcontext
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -497,25 +498,73 @@ class TPUBackend(BackendBase):
         which is representative under SPMD because each chip holds
         roughly the same shard.
 
-        iter 18 lever 3 fix: under SPMD, ``xm.get_memory_info`` reads
-        HBM that is already materialised on chip. If the call lands
-        between two ``mark_step`` boundaries the lazy graph hasn't
-        been compiled+executed yet and HBM reads as 0 GB. We force a
-        sync (``mark_step()`` + ``wait_device_ops()``) so the values
-        reflect the post-step state. Verified by ``_artifacts/
-        memory_probe.py`` which got real numbers only after sync.
+        SPMD limitation (pytorch/xla #9022, closed 2026-01 as
+        deprioritized): ``xm.get_memory_info`` is NOT supported
+        under SPMD -- it returns all-zeros rather than raising.
+        The iter-18 ``mark_step + wait_device_ops`` workaround
+        was insufficient because the limitation is in the PJRT
+        computation client, not a timing issue.
+
+        Iter 19 fix: when running under SPMD, fall back to the
+        ``tpu-info`` CLI tool (``tpu-info --bytes_used``) which
+        queries the TPU runtime directly and works under SPMD.
+        When NOT under SPMD, use ``xm.get_memory_info`` as before.
         """
         try:
             import torch_xla.core.xla_model as xm
+            import torch_xla.runtime as xr
 
-            xm.mark_step()
-            xm.wait_device_ops()
-            mem = xm.get_memory_info(self.get_device())
-            return {
-                "allocated_gb": mem.get("bytes_used", 0) / 1e9,
-                "max_allocated_gb": mem.get("peak_bytes_used", 0) / 1e9,
-                "limit_gb": mem.get("bytes_limit", 0) / 1e9,
-            }
+            is_spmd = xr.using_spmd()
+
+            if is_spmd:
+                # SPMD path: xm.get_memory_info returns all-zeros
+                # (pytorch/xla #9022). Fall back to tpu-info CLI
+                # which queries the TPU runtime directly under SPMD.
+                # Verified: tpu-info --metric hbm_usage returns
+                # "22.67 GiB / 31.25 GiB" per chip from SSH.
+                import subprocess as _sp
+                import sys
+                try:
+                    tpu_info = str(
+                        Path(sys.prefix) / "bin" / "tpu-info"
+                    )
+                    out = _sp.run(
+                        [tpu_info, "--metric", "hbm_usage"],
+                        capture_output=True, text=True, timeout=10,
+                        env={**os.environ, "PJRT_DEVICE": "TPU"},
+                    )
+                    if out.returncode == 0 and "N/A" not in out.stdout:
+                        # Parse table: "22.67 GiB / 31.25 GiB"
+                        for line in out.stdout.splitlines():
+                            if "|" not in line:
+                                continue
+                            parts = line.strip("|").split("|")
+                            if len(parts) >= 2 and parts[0].strip() == "0":
+                                usage_str = parts[1].strip()
+                                # Format: "22.67 GiB / 31.25 GiB"
+                                if "/" in usage_str:
+                                    used_s, limit_s = usage_str.split("/")
+                                    used_gb = float(used_s.strip().rstrip(" GiB"))
+                                    limit_gb = float(limit_s.strip().rstrip(" GiB"))
+                                else:
+                                    used_gb = float(usage_str.rstrip(" GiB"))
+                                    limit_gb = 31.246
+                                return {
+                                    "allocated_gb": used_gb,
+                                    "max_allocated_gb": 0.0,
+                                    "limit_gb": limit_gb,
+                                }
+                except Exception:
+                    pass
+                return None
+            else:
+                # Non-SPMD path: xm.get_memory_info works correctly.
+                mem = xm.get_memory_info(self.get_device())
+                return {
+                    "allocated_gb": mem.get("bytes_used", 0) / 1e9,
+                    "max_allocated_gb": mem.get("peak_bytes_used", 0) / 1e9,
+                    "limit_gb": mem.get("bytes_limit", 0) / 1e9,
+                }
         except Exception:
             return None
 
