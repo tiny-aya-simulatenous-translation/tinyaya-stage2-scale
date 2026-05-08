@@ -22,6 +22,84 @@
 
 ## Architecture decisions
 
+### 2026-05-08: Iter 24c -- v6e bf16 reduce-scatter NaN bug forces barrier-only OOM mitigation
+
+**Decision (numerics fix):** Iter 24a/24b BOTH hit a bit-deterministic
+NaN at step 24 (audio_loss first, then both losses) regardless of
+whether FlashAttention was on (24a) or off (24b). Bisection
+confirmed flash-attention is NOT the trigger.
+
+**Root cause:** the iter 24 patch to ``tpu_backend.py`` added
+``Cohere2DecoderLayer`` to ``layer_type_names`` in the FSDPv2
+auto-wrap policy. Iters 21-23 had a stale class name
+(``CohereDecoderLayer``) that NEVER matched the real HF class, so
+the 36 backbone layers were unwrapped and there was a single
+outer-level reduce-scatter. The class-name fix introduced 36
+per-layer FSDPv2 reduce-scatters. On v6e, bf16 reduce-scatter is
+known-buggy: pytorch/xla #8591 (open Jan 2025; v6e+bf16+batch>=16
+NaN, no fix; XLA team confirmed v6e-specific) and #8778 (open Mar
+2025; same NaN signature on v4-8 with larger batch). FSDPv2 has NO
+``fp32_reduce_scatter`` flag (only FSDPv1 does -- pytorch/xla
+#3588; #8056 tries to add it to FSDPv2 but is open since Sep 2024,
+not merged). pytorch/pytorch #106395 confirms ``reduce_dtype=None``
+(fp32) instead of bf16 fixes the NaN; HF accelerate #2127 (pacman100)
+notes "layer norms, softmax and the output logits are required to
+be in FP32 for stable training" with FSDP+bf16.
+
+**Fix (iter 24c):** revert the class-name patch in
+``tpu_backend.py`` (``layer_type_names = ("CohereDecoderLayer",
+"MoshiDecoderLayer")`` -- drops ``Cohere2DecoderLayer``). The 36
+backbone layers are no longer wrapped by FSDPv2 individually; ONE
+outer-level reduce-scatter at the composite level matches the iter
+17-23 stable bf16 regime. Keep the
+``_apply_fsdpv2_backward_barriers`` helper unchanged: its targets
+still include ``Cohere2DecoderLayer`` but it uses
+``register_full_backward_hook`` (a plain torch hook), which works
+regardless of whether the layer is wrapped by FSDPv2. **Verified
+at runtime:** ``[fsdpv2] applied backward optimization barrier to
+42 layers`` is still logged. Combines iter 21-23 stable numerics +
+barrier-only OOM mitigation.
+
+**Why barrier-only without per-layer wraps still works for OOM:**
+the cache_all_gather=True ring buffer (openxla/xla #20508) retains
+all-gather'd full params from forward through backward at every
+FSDPv2 wrap. Without per-layer FSDPv2 wraps, there's just ONE
+all-gather buffer at the composite level instead of 36. The
+``xm.optimization_barrier_(grads + grad_input)`` at each
+Cohere2DecoderLayer's backward still forces XLA to materialise
+gradients and free intermediate activation buffers before the
+previous layer's backward begins, breaking the CSE chain that hit
+the step-258 OOM.
+
+**Other knobs preserved from iter 24:**
+- ``enable_clip_grad_norm: true`` (lever 6 fused variant 6a).
+- ``--xla_tpu_enable_flash_attention=false`` in LIBTPU_INIT_ARGS
+  (matches iter 17-23 stable; iter 24a/24b proved flash-attention
+  is not the NaN cause but it wasn't on the critical path either).
+- ``wandb_run_name: v6e-spot-stage2-5k-iter24c``,
+  profile dir ``/tmp/xla_profile/iter24c-<ts>/``.
+
+**SUPERSEDES** the iter 24 "Also re-enabled" decision below: the
+flash-attention re-enable in 24's launcher LIBTPU_INIT_ARGS was
+reverted in 24b/24c, and the per-layer FSDPv2 wraps that the
+class-name fix introduced were reverted in 24c.
+
+**Where:**
+- ``simultaneous-translation/src/backend/tpu_backend.py`` lines
+  331-350 (``_wrap_fsdpv2.layer_type_names``).
+- ``simultaneous-translation/scripts/train_hierarchical.py`` lines
+  118-202 (``_FSDPV2_BARRIER_TARGET_CLASSES`` + helper) UNCHANGED.
+- ``configs/stage2_tpu_v6e_spot.yaml`` (``wandb_run_name``).
+- ``_artifacts/launch_train_v6e_v2.sh`` (banner + LIBTPU_INIT_ARGS).
+- wandb URL: https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/83evwy38.
+
+**References:**
+- pytorch/xla #8591, #8778 -- v6e bf16 reduce-scatter NaN bug.
+- pytorch/xla #3588, #8056 -- fp32_reduce_scatter (FSDPv1 has it,
+  FSDPv2 does not).
+- pytorch/pytorch #106395 -- reduce_dtype=None fixes Llama FSDP NaN.
+- HF accelerate #2127 -- FSDP+bf16 best practice from pacman100.
+
 ### 2026-05-08: Iter 24 -- FSDPv2 backward optimization barrier kills the cache_all_gather OOM
 **Decision (root-cause fix):** Iter 21/22/23 all OOM-crashed at step
 258 with the same 89 GiB HLO temp on a 31 GiB v6e chip,

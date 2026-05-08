@@ -26,6 +26,84 @@ moved to `.factory/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-05-08T18:16:48Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.factory/PLAN.md`
+
+
+## 2026-05-08T18:16:09Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.factory/memories.md`
+
+
+## 2026-05-08T18:15:13Z | feat/tpu-support@0edb0c8 | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/orch_state.json`
+
+
+## 2026-05-08T17:46:36Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot.yaml`
+
+
+## 2026-05-08T17:46:24Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
+## 2026-05-08T17:46:19Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
+## 2026-05-08T17:46:13Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
+## 2026-05-08T17:46:04Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
+## 2026-05-08T17:45:30Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot.yaml`
+
+
+## 2026-05-08T17:45:20Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/backend/tpu_backend.py`
+
+
+## 2026-05-08T17:38:32Z | feat/tpu-support@0edb0c8 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # CLI entry point loads and prints help
+    ModuleNotFoundError: No module named 'src.config'
+
+
+## 2026-05-08T17:01:36Z | feat/tpu-support@0edb0c8 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # CLI entry point loads and prints help
+    ModuleNotFoundError: No module named 'src.config'
+
+
+## 2026-05-08T16:44:17Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot.yaml`
+
+
+## 2026-05-08T16:43:48Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
+## 2026-05-08T16:43:43Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
+## 2026-05-08T16:43:37Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
+## 2026-05-08T16:43:28Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
+## 2026-05-08T16:43:10Z | feat/tpu-support@0edb0c8 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
 ## 2026-05-08T15:56:42Z | feat/tpu-support@659ecb9 | done | edit
 edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/backend/tpu_backend.py`
 

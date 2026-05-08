@@ -48,11 +48,14 @@ train:
   # ~22-26 GB (~80%, OOM tail risk) -- deferred to iter 19+.
   batch_size: 16
   grad_accum: 2
-  # iter 24: main 5000-step production run (Phase 13).
-  # Re-launches iter 21's target with the FSDPv2 backward barrier fix
-  # for the cache_all_gather OOM. Expected wall clock: 5000 * ~4.3
-  # s/step = ~6.0 h plus ~25 min compile = ~6.4 h end-to-end.
-  # warmup_steps=200 = 4% of total (standard 1-5% warmup band).
+  # iter 24c: main 5000-step production run (Phase 13). Combines
+  # iter 21-23 stable bf16 numerics (NO per-layer FSDPv2 wraps on
+  # the Cohere2 backbone) with the iter 24 FSDPv2 backward
+  # optimization barrier (still fires on Cohere2DecoderLayer +
+  # MoshiDecoderLayer via register_full_backward_hook independent of
+  # the wrap policy) for the cache_all_gather OOM. Expected wall
+  # clock: 5000 * ~4.3 s/step = ~6.0 h plus ~25 min compile = ~6.4 h
+  # end-to-end. warmup_steps=200 = 4% of total.
   max_steps: 5000
   warmup_steps: 200
   # iter 24: lever 6 (fused clip_grad_norm) re-enabled now that the
@@ -117,6 +120,14 @@ logging:
   keep_last_n: 5
   use_wandb: true
   wandb_project: tinyaya-stage2-tpu
-  # iter 24: fresh numerical run id so the new run is distinguishable
-  # from the iter 21/22/23 OOM-crashed attempts in the wandb UI.
-  wandb_run_name: v6e-spot-stage2-5k-iter24
+  # iter 24c: drop per-layer FSDPv2 wraps (iter 24a/24b's class-name
+  # fix in tpu_backend.py is reverted) to escape the v6e bf16
+  # reduce-scatter NaN bug (pytorch/xla #8591/#8778). Keep the
+  # backward optimization barrier on Cohere2DecoderLayer +
+  # MoshiDecoderLayer directly via register_full_backward_hook -- it
+  # works regardless of FSDPv2 wrapping and still mitigates the iter
+  # 21/22/23 cache_all_gather step-258 OOM. Combines iter 21-23
+  # stable bf16 numerics + barrier-only OOM mitigation. Fresh wandb
+  # run id so the UI clearly separates this from 24a (NaN, flash-on)
+  # and 24b (NaN, flash-off).
+  wandb_run_name: v6e-spot-stage2-5k-iter24c

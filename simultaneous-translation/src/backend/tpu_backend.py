@@ -328,17 +328,24 @@ class TPUBackend(BackendBase):
                 sharded.append(v)
             return tuple(sharded)
 
-        # iter 24: include the actual HF transformers class name
-        # (``Cohere2DecoderLayer``) for the Cohere2 backbone. The
-        # legacy ``CohereDecoderLayer`` entry was a stale guess that
-        # NEVER matched on this build of transformers, leaving the
-        # 36 backbone layers without per-layer FSDPv2 wraps. That
-        # is the underlying cause of the iter 21/22/23 step-258 OOM
-        # (cache_all_gather=True coalesces the all-gather of every
-        # sharded param into a single coarse-grained ring buffer
-        # which overflows HBM at the first graph-hash variance).
+        # iter 24c: deliberately exclude ``Cohere2DecoderLayer`` from
+        # the auto-wrap policy. iter 24a/24b added it (matching the
+        # real HF class name) which created 36 per-layer FSDPv2
+        # wraps and 36 per-layer bf16 reduce-scatters on the
+        # backward pass. On v6e that triggers the documented bf16
+        # reduce-scatter numerics bug (pytorch/xla #8591 + #8778):
+        # audio_loss went NaN at step 24 in both 24a (flash-attn on)
+        # and 24b (flash-attn off). FSDPv2 has no
+        # ``fp32_reduce_scatter`` flag (only FSDPv1 does, see
+        # pytorch/xla #3588 / #8056) so we fall back to ONE outer
+        # reduce-scatter at the composite level, which iter 17-23
+        # validated as bf16-stable. The cache_all_gather OOM is
+        # instead mitigated by the per-layer backward optimization
+        # barrier installed in train_hierarchical.py
+        # (``_apply_fsdpv2_backward_barriers``); that hook uses
+        # ``register_full_backward_hook`` which works regardless of
+        # whether the layer is wrapped by FSDPv2.
         layer_type_names = (
-            "Cohere2DecoderLayer",
             "CohereDecoderLayer",
             "MoshiDecoderLayer",
         )

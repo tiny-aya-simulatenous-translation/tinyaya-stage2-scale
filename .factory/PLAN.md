@@ -284,34 +284,50 @@ re-enables every previously gated knob.
   requires_grad iteration (`7948cbb`). Same OOM at step 258.
 - [x] Iter 23: gate lever 6 behind `enable_clip_grad_norm: false`
   (`659ecb9`). Same OOM at step 258.
-- [ ] Iter 24 fix A -- new helper
+- [x] Iter 24 fix A -- new helper
   `_apply_fsdpv2_backward_barriers(model)` in
   `scripts/train_hierarchical.py`; called after `backend.wrap_model`
   on the TPU path. Walks `model.modules()`, registers a backward
   hook that fires `xm.optimization_barrier_(grads + grad_input)` on
-  every inner `SpmdFullyShardedDataParallel` instance. Logs
-  `[fsdpv2] applied backward optimization barrier to N layers`.
-- [ ] Iter 24 fix B -- drop `--xla_tpu_enable_flash_attention=false`
-  from `_artifacts/launch_train_v6e_v2.sh` LIBTPU_INIT_ARGS so XLA
-  picks the FlashAttention TPU kernel (sidesteps torch_xla 2.6+ SDPA
-  2.5x SPMD memory regression -- pytorch/xla #8423).
-- [ ] Iter 24 re-enable lever 6 -- flip
-  `enable_clip_grad_norm: false -> true` in
-  `configs/stage2_tpu_v6e_spot.yaml`; bump
-  `wandb_run_name -> v6e-spot-stage2-5k-iter24`.
-- [ ] Build iter 24 tarball; upload to
-  `gs://tinyaya-stage2-tpu/code/tinyaya-repo-iter24.tar.gz`.
-- [ ] Deploy + launch on `tinyaya-stage2-spot-v6e8-eu`.
-- [ ] Announce new wandb URL on first detection.
-- [ ] Validate `[fsdpv2] applied backward optimization barrier to N
-  layers` line is present (N >= 36 expected).
-- [ ] First 30 steps: no OOM, HBM < 25 GiB, sec/step ~< 4 s.
-- [ ] Past historical step 258 OOM threshold without
-  RESOURCE_EXHAUSTED.
-- [ ] Reach step 5000 with monotonic loss decrease; canonical save
-  to `gs://.../stage2-tpu-v6e-spot/step_005000_final/` succeeds.
-- [ ] gsutil cp profile dir to GCS; verify TensorBoard-readable.
-- [ ] Commit iter 24.
+  every Cohere2DecoderLayer / CohereDecoderLayer / MoshiDecoderLayer
+  via class-name match. Logs
+  `[fsdpv2] applied backward optimization barrier to 42 layers`.
+- [x] Iter 24 fix B (REVERTED in 24b/24c) -- dropping
+  `--xla_tpu_enable_flash_attention=false` proved orthogonal to NaN.
+  Restored in 24b/24c to match iter 17-23 stable LIBTPU_INIT_ARGS.
+- [x] Iter 24 re-enable lever 6 (`enable_clip_grad_norm: true`).
+- [x] Build iter 24 tarball + upload + deploy + launch.
+- [x] Iter 24a (5ep7z7ab): NaN at step 24 (audio_loss). flash-on.
+- [x] Iter 24b (49kjpp6v): bit-identical NaN at step 24. flash-off.
+  Confirmed flash-attention is not the trigger.
+- [x] Diagnose via exa: pytorch/xla #8591/#8778 (v6e bf16
+  reduce-scatter NaN bug, no fix); FSDPv2 has no
+  `fp32_reduce_scatter`. Per-layer reduce-scatters from the iter
+  24 class-name fix are the trigger; iter 21-23 had a stale class
+  name so only ONE outer reduce-scatter -> bf16 stable.
+- [x] Iter 24c -- revert tpu_backend.py auto_wrap_policy class-name
+  patch (`layer_type_names = ("CohereDecoderLayer",
+  "MoshiDecoderLayer")`); keep barrier helper unchanged
+  (`register_full_backward_hook` works without FSDPv2 wrapping);
+  bump `wandb_run_name -> v6e-spot-stage2-5k-iter24c`.
+- [x] Iter 24c: build tarball, upload to
+  `gs://tinyaya-stage2-tpu/code/tinyaya-repo-iter24c.tar.gz`,
+  deploy + launch.
+- [x] Iter 24c: announce wandb URL
+  https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/83evwy38;
+  validate `[fsdpv2] applied backward optimization barrier to 42
+  layers` (CONFIRMED at runtime).
+- [ ] Iter 24c: no NaN through step 30 (the 24a/24b regression
+  boundary).
+- [ ] Iter 24c: no NaN through step 100; first compile completes.
+- [ ] Iter 24c: past historical step 258 OOM threshold without
+  RESOURCE_EXHAUSTED (barrier-only path).
+- [ ] Iter 24c: reach step 5000 with monotonic loss decrease;
+  canonical save to
+  `gs://.../stage2-tpu-v6e-spot/step_005000_final/` succeeds.
+- [ ] Iter 24c: gsutil cp profile dir to GCS; verify
+  TensorBoard-readable.
+- [ ] Commit iter 24c.
 
 ## Out of scope
 
