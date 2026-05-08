@@ -78,9 +78,13 @@ def _patch_attention_mask_for_bf16() -> None:
         return out.clamp(min=SAFE_MIN)
 
     @staticmethod
-    def patched_make_causal(input_ids_shape, dtype, device, past_key_values_length=0, sliding_window=None):
+    def patched_make_causal(
+        input_ids_shape, dtype, device, past_key_values_length=0, sliding_window=None
+    ):
         out = original_make_causal(
-            input_ids_shape, dtype, device,
+            input_ids_shape,
+            dtype,
+            device,
             past_key_values_length=past_key_values_length,
             sliding_window=sliding_window,
         )
@@ -109,6 +113,94 @@ from src.training.checkpointing import (
 )
 from src.training.scheduler import WarmupCosineScheduler
 from src.training.translation_loss import compute_hierarchical_translation_loss
+
+
+_FSDPV2_BARRIER_TARGET_CLASSES: tuple[str, ...] = (
+    "Cohere2DecoderLayer",
+    "CohereDecoderLayer",
+    "MoshiDecoderLayer",
+)
+
+
+def _apply_fsdpv2_backward_barriers(model: torch.nn.Module) -> int:
+    """Register per-layer XLA optimization barriers on an SPMD model.
+
+    Walks every submodule of ``model`` and, for each transformer
+    decoder layer matched by class name, registers a backward hook
+    that calls ``xm.optimization_barrier_`` over the layer's grads
+    plus the upstream ``grad_input``. This forces XLA to materialise
+    gradients and free the all-gather output of that layer's
+    sharded full params before the previous layer's backward begins.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The composite, post-``backend.wrap_model``. ``SpmdFullyShardedDataParallel``
+        does not wrap inner layers in nested FSDPv2 instances --
+        instead it walks the auto_wrap_policy match set and applies
+        ``xs.mark_sharding`` to each matched layer's parameters.
+        Inner layers therefore remain ordinary
+        ``CohereDecoderLayer`` / ``MoshiDecoderLayer`` instances,
+        which is what we hook by class name here.
+
+    Returns
+    -------
+    int
+        Number of layers that received a barrier hook. Zero on
+        non-TPU paths (the imports fail) and zero when the composite
+        is missing both target layer classes.
+
+    Notes
+    -----
+    TPU note: Without this hook, XLA's ``cache_all_gather=True``
+    (defaulted in the SPMD partitioner; see openxla/xla #20508)
+    retains the all-gather output of every sharded layer's full
+    params from forward through backward. Across 36 sharded
+    ``CohereDecoderLayer`` instances those retained ring buffers
+    accumulate to ~28 GiB on v6e-8 (32 GiB / chip), which then
+    deterministically OOMs around step 258 the moment XLA's CSE
+    stops eliding equivalent all-gather ops and is forced to
+    materialise the full ring of 20+ buffers simultaneously.
+
+    The hook implements step 5 of the FSDPv2 SPMD recipe from
+    pytorch/xla #6379 (the HF Llama 2 / DeepSeek SPMD reference
+    pattern): a backward hook that calls
+    ``xm.optimization_barrier_(grads + grad_input)`` per layer,
+    forcing XLA to insert a fence that prevents the all-gather
+    cache from accumulating across the forward-to-backward
+    boundary.
+
+    GPU analogue: none -- on GPU, FSDP's pre/post-backward hooks
+    already free full params at exit; XLA SPMD requires this manual
+    fence because the partitioner is far more aggressive about
+    fusion + caching.
+
+    References
+    ----------
+    openxla/xla #20508 -- ``cache_all_gather`` default + no flag.
+    pytorch/xla #6379  -- FSDPv2 RFC step 5 (per-layer barrier).
+    pytorch/xla #8423  -- SDPA 2.5x SPMD memory regression context.
+    """
+    try:
+        from torch_xla.distributed.spmd.xla_sharding import (
+            apply_backward_optimization_barrier,
+        )
+    except ImportError as exc:
+        print(f"[fsdpv2] WARN: backward barrier unavailable: {exc!r}", flush=True)
+        return 0
+
+    barrier_count = 0
+    for sub in model.modules():
+        if type(sub).__name__ in _FSDPV2_BARRIER_TARGET_CLASSES:
+            apply_backward_optimization_barrier(sub)
+            barrier_count += 1
+    print(
+        f"[fsdpv2] applied backward optimization barrier to {barrier_count} layers "
+        f"(targets={_FSDPV2_BARRIER_TARGET_CLASSES})",
+        flush=True,
+    )
+    return barrier_count
+
 
 # ---------------------------------------------------------------------------
 # config loading
@@ -488,7 +580,7 @@ def main():
     # (capture_profile.py / TensorBoard) can attach. Rank-0 only --
     # multi-host pods would collide on port 9012. Single-host v6e-8
     # has one process so this is unconditional once is_main passes.
-    is_tpu_early = (cfg.get("backend", "auto") == "tpu")
+    is_tpu_early = cfg.get("backend", "auto") == "tpu"
     # iter 20 fix: the return value of xp.start_server() must be
     # bound to a long-lived name. Per torch_xla.debug.profiler
     # docstring: "If this object is garbage collected, the profiler
@@ -500,11 +592,14 @@ def main():
     if is_tpu_early and is_main:
         try:
             import torch_xla.debug.profiler as xp
+
             xp_port = int(os.environ.get("XLA_PROFILER_PORT", "9012"))
             main._xp_profiler_server = xp.start_server(xp_port)
-            print(f"[profiler] xp.start_server listening on :{xp_port}"
-                  f" (server obj retained: {main._xp_profiler_server!r})",
-                  flush=True)
+            print(
+                f"[profiler] xp.start_server listening on :{xp_port}"
+                f" (server obj retained: {main._xp_profiler_server!r})",
+                flush=True,
+            )
         except Exception as e:
             print(f"[profiler] xp.start_server failed: {e}", flush=True)
 
@@ -544,6 +639,16 @@ def main():
     if cfg.get("backend", "auto") != "tpu":
         model.backbone.gradient_checkpointing_enable()
     model = backend.wrap_model(model)
+    # iter 24: install per-layer backward optimization barriers so XLA
+    # frees the cached all-gather outputs before each layer's backward
+    # begins. Without this hook, ``cache_all_gather=True`` (defaulted in
+    # the SPMD partitioner; openxla/xla #20508) retains ring buffers
+    # forward-to-backward and deterministically OOMs around step 258 on
+    # v6e-8. See the docstring of ``_apply_fsdpv2_backward_barriers`` and
+    # ``.factory/memories.md`` 2026-05-08 iter 24 entry for the full
+    # rationale + upstream references (pytorch/xla #6379 step 5).
+    if cfg.get("backend", "auto") == "tpu":
+        _apply_fsdpv2_backward_barriers(model)
     if hasattr(backend, "diagnose"):
         backend.diagnose("post-wrap")
     unwrapped = model.module if hasattr(model, "module") else model
@@ -696,9 +801,12 @@ def main():
             for attempt in range(60):
                 try:
                     import subprocess as _sp
+
                     out = _sp.run(
                         ["gsutil", "cat", rendezvous_uri],
-                        capture_output=True, text=True, timeout=10,
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
                     )
                     if out.returncode == 0 and out.stdout.strip():
                         run_id = out.stdout.strip()
@@ -719,11 +827,13 @@ def main():
                     ),
                     config=cfg,
                 )
-                print(f"[wandb] worker host {host_idx} attached to shared run {run_id}",
-                      flush=True)
+                print(f"[wandb] worker host {host_idx} attached to shared run {run_id}", flush=True)
             else:
-                print(f"[wandb] worker host {host_idx} failed to find rendezvous; "
-                      f"disabling wandb on this host", flush=True)
+                print(
+                    f"[wandb] worker host {host_idx} failed to find rendezvous; "
+                    f"disabling wandb on this host",
+                    flush=True,
+                )
                 use_wandb = False
         elif is_main:
             # Primary host: create the run, publish run-id.
@@ -735,19 +845,27 @@ def main():
                     mode="shared",
                     x_label="rank_0",
                     x_primary=True,
-                ) if is_tpu else None,
+                )
+                if is_tpu
+                else None,
             )
             if is_tpu:
                 run_id = wandb.run.id
                 try:
                     import subprocess as _sp, tempfile as _tf
+
                     with _tf.NamedTemporaryFile("w", suffix=".id", delete=False) as f:
                         f.write(run_id)
                         local_path = f.name
-                    _sp.run(["gsutil", "cp", local_path, rendezvous_uri],
-                            check=False, capture_output=True, timeout=20)
-                    print(f"[wandb] primary published run_id={run_id} to {rendezvous_uri}",
-                          flush=True)
+                    _sp.run(
+                        ["gsutil", "cp", local_path, rendezvous_uri],
+                        check=False,
+                        capture_output=True,
+                        timeout=20,
+                    )
+                    print(
+                        f"[wandb] primary published run_id={run_id} to {rendezvous_uri}", flush=True
+                    )
                 except Exception as e:
                     print(f"[wandb] primary failed to publish run_id: {e}", flush=True)
         else:
@@ -908,6 +1026,7 @@ def main():
         # and detects exploding gradients, at ~5-15% throughput cost.
         if is_tpu:
             import torch_xla.core.xla_model as _xm
+
             # iter 23: lever 6 (fused clip) is gated behind a config
             # flag. Both iter 21 (vanilla clip) and iter 22 (clip with
             # set_to_none=False + requires_grad iteration) OOM-crashed
@@ -921,9 +1040,7 @@ def main():
             # the steady-state HBM. Until we can root-cause that
             # recompile, this run keeps lever 6 OFF (matches iter 18c)
             # and trades the train/grad_norm metric for run stability.
-            enable_clip = bool(
-                cfg["train"].get("enable_clip_grad_norm", False)
-            )
+            enable_clip = bool(cfg["train"].get("enable_clip_grad_norm", False))
             if enable_clip:
                 max_grad_norm = cfg["train"].get("max_grad_norm", 1.0)
                 total_sq = torch.tensor(0.0, device=device)
@@ -935,9 +1052,7 @@ def main():
                     total_sq = total_sq + (p.grad.float() ** 2).sum()
                 total_norm = total_sq.sqrt()
                 clip_coef = max_grad_norm / (total_norm + 1e-6)
-                clip_coef = torch.where(
-                    clip_coef < 1.0, clip_coef, torch.ones_like(clip_coef)
-                )
+                clip_coef = torch.where(clip_coef < 1.0, clip_coef, torch.ones_like(clip_coef))
                 for p in model.parameters():
                     if not p.requires_grad:
                         continue
@@ -1032,7 +1147,9 @@ def main():
                 }
             else:
                 running = {
-                    "loss": 0.0, "text": 0.0, "audio": 0.0,
+                    "loss": 0.0,
+                    "text": 0.0,
+                    "audio": 0.0,
                     "per_cb": torch.zeros(num_codebooks),
                 }
                 if mem_info:

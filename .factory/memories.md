@@ -22,6 +22,77 @@
 
 ## Architecture decisions
 
+### 2026-05-08: Iter 24 -- FSDPv2 backward optimization barrier kills the cache_all_gather OOM
+**Decision (root-cause fix):** Iter 21/22/23 all OOM-crashed at step
+258 with the same 89 GiB HLO temp on a 31 GiB v6e chip,
+bit-deterministic across runs even after iter 22 stabilised the
+grad topology (`set_to_none=False` + `requires_grad` iteration) and
+iter 23 gated lever 6 entirely. The crash signature (5.7x
+steady-state HBM at a single recompile boundary) matches the
+documented behaviour of XLA SPMD's `cache_all_gather=True`
+(defaulted, no programmatic disable; openxla/xla #20508): the
+all-gather output of every sharded layer's full params is retained
+from forward through backward, accumulating ~28 GiB of ring buffers
+across the 36 FSDPv2-wrapped CohereDecoderLayer instances; step 258
+is the first batch whose graph hash forces XLA's CSE to stop
+eliding equivalent all-gathers, so all 20+ retained buffers
+materialise simultaneously and OOM the chip.
+
+**Fix (iter 24):** install per-layer
+``register_full_backward_hook`` that calls
+``xm.optimization_barrier_(grads + grad_input)`` on every inner
+``SpmdFullyShardedDataParallel`` wrap, forcing XLA to materialise
+gradients and free the cached all-gather output before the previous
+layer's backward begins. This is step 5 of the FSDPv2 SPMD recipe
+in pytorch/xla #6379 and the HF Llama 2 / DeepSeek SPMD reference
+pattern. Implemented as
+``_apply_fsdpv2_backward_barriers(model)`` in
+``scripts/train_hierarchical.py``, called after
+``backend.wrap_model(model)`` on the TPU path.
+
+**Also re-enabled in iter 24** (now that the OOM is fixed, every
+gated knob is restored):
+- ``enable_clip_grad_norm: true`` (lever 6, fused variant 6a) in
+  ``configs/stage2_tpu_v6e_spot.yaml``.
+- Dropped ``--xla_tpu_enable_flash_attention=false`` from
+  ``_artifacts/launch_train_v6e_v2.sh`` LIBTPU_INIT_ARGS so XLA's
+  FlashAttention TPU kernel runs (sidesteps the torch_xla 2.6+
+  SDPA 2.5x SPMD memory regression -- pytorch/xla #8423).
+- Bumped ``wandb_run_name -> v6e-spot-stage2-5k-iter24`` so the
+  fresh attempt is distinguishable from the iter 21/22/23 crashed
+  runs in the wandb UI.
+
+**Why this is the right intervention** (vs the alternatives):
+- ``XLA_FLAGS=--xla_spmd_cache_all_gather=false`` is not
+  programmatically configurable (openxla/xla #20508 was closed
+  without exposing the flag).
+- FSDPv1 (``XlaFullyShardedDataParallel``) has explicit
+  ``optimization_barrier_in_forward/backward`` flags that fire the
+  same ``xm.optimization_barrier_`` calls internally; switching to
+  FSDPv1 would re-architect the SPMD path (multi-process vs
+  single-process) and is much higher-risk than the additive hook.
+- Reducing batch_size, max_frames, or grad_accum would mask the
+  symptom but the ring-buffer accumulation would still scale and
+  eventually OOM at a deeper step.
+
+**Where:**
+- Code: ``simultaneous-translation/scripts/train_hierarchical.py``
+  (``_apply_fsdpv2_backward_barriers`` helper + call after
+  ``wrap_model``).
+- Config: ``simultaneous-translation/configs/stage2_tpu_v6e_spot.yaml``
+  (``enable_clip_grad_norm: true``,
+  ``wandb_run_name: v6e-spot-stage2-5k-iter24``).
+- Launcher: ``_artifacts/launch_train_v6e_v2.sh`` (banner +
+  LIBTPU_INIT_ARGS).
+- PLAN: ``.factory/PLAN.md`` Phase 13.
+
+**References:**
+- openxla/xla #20508 -- ``cache_all_gather`` default + no flag.
+- pytorch/xla #6379 step 5 -- FSDPv2 SPMD backward-barrier recipe.
+- pytorch/xla #8423 -- SDPA 2.5x SPMD memory regression workaround.
+- pytorch/xla #8809 -- closed Mar 2025; same gradient-buffer-lifetime
+  symptom under MarkShardingFunction.
+
 ### 2026-05-08: Iter 18 -- five optimization levers + lever 6 variants documented
 **Decision (perf milestone):** Lift v6e-8 EU canary throughput ~1.7x over
 iter 17 (2.36 sec/step, 54.2 examples/sec, ~10x iter 14) while

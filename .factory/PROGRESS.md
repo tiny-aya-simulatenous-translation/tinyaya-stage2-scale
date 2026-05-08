@@ -26,6 +26,109 @@ moved to `.factory/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-05-08T15:56:42Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/backend/tpu_backend.py`
+
+
+## 2026-05-08T15:56:00Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-05-08T15:51:55Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-05-08T15:40:44Z | feat/tpu-support@659ecb9 | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/orch_state.json`
+
+
+## 2026-05-08T15:40:18Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.factory/memories.md`
+
+
+## 2026-05-08T15:39:51Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.factory/PLAN.md`
+
+
+## 2026-05-08T15:38:50Z | feat/tpu-support@659ecb9 | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/.factory/skills/tpu-redeploy/SKILL.md`
+
+
+## 2026-05-08T15:38:19Z | feat/tpu-support@659ecb9 | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/.factory/skills/tpu-orchestrate/SKILL.md`
+
+
+## 2026-05-08T15:37:13Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
+## 2026-05-08T15:37:07Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
+## 2026-05-08T15:37:01Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
+## 2026-05-08T15:36:54Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/_artifacts/launch_train_v6e_v2.sh`
+
+
+## 2026-05-08T15:36:26Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot.yaml`
+
+
+## 2026-05-08T15:36:17Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot.yaml`
+
+
+## 2026-05-08T15:36:10Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot.yaml`
+
+
+## 2026-05-08T15:35:50Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-05-08T15:35:40Z | feat/tpu-support@659ecb9 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-05-08T15:10:24Z | feat/tpu-support@659ecb9 | info | session
+SessionEnd (other): 35 item(s) carried forward
+
+Next steps:
+- >= 200 successful steps (canary `max_steps=200`); checkpoint
+- Patches 12 + 13 either landed and verified, or proven
+- All commands in `VERIFY.md` (monorepo + simultaneous-translation
+- 5000-step run completes (canary -> full config); final loss
+- `eval_stage2.py` ASR-BLEU + DNSMOS recorded against
+- Verify activation memory is under 4 GB per chip via `diagnose()`.
+- If still tight, try moving frozen `MoshiDecoderLayer` to bf16
+- Re-run `probe_strategies.py` against the real model with
+
+
+## 2026-05-08T14:25:52Z | feat/tpu-support@659ecb9 | info | session
+SessionEnd (other): 35 item(s) carried forward
+
+Next steps:
+- >= 200 successful steps (canary `max_steps=200`); checkpoint
+- Patches 12 + 13 either landed and verified, or proven
+- All commands in `VERIFY.md` (monorepo + simultaneous-translation
+- 5000-step run completes (canary -> full config); final loss
+- `eval_stage2.py` ASR-BLEU + DNSMOS recorded against
+- Verify activation memory is under 4 GB per chip via `diagnose()`.
+- If still tight, try moving frozen `MoshiDecoderLayer` to bf16
+- Re-run `probe_strategies.py` against the real model with
+
+
+## 2026-05-08T14:20:04Z | feat/tpu-support@659ecb9 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # CLI entry point loads and prints help
+    ModuleNotFoundError: No module named 'src.config'
+
+
 ## 2026-05-08T14:15:41Z | feat/tpu-support@7948cbb | done | edit
 edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot.yaml`
 

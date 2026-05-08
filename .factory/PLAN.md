@@ -255,42 +255,63 @@ Throughput **5.96x** iter 14 (54.2 vs 9.1 examples/sec).
   ceiling = 31.246 GiB/chip (not 32 GiB marketing); peak ~1.2 GiB
   during 5x4096 matmul warmup; zero `aten::` fallbacks.
 
-### Phase 12 — Iter 18 throughput optimization (active)
+### Phase 12 — Iter 18-20 throughput + telemetry (DONE)
 
-Goal: lift throughput ~1.7x over iter 17 baseline (~10x iter 14)
-by raising effective batch and instrumenting the run for live HBM
-+ profiler telemetry. Lever 6 (clip_grad_norm re-enable) is
-DEFERRED to iter 19 to keep iter 18 baseline clean.
+- [x] Iter 18: 5 levers (batch=16, max_frames=400, real HBM probe,
+  profiler, debug-level=1) committed at `2400ada`.
+- [x] Iter 19: 3 fixes + lever 6 (fused clip_grad_norm, variant 6a)
+  committed at `7073d77`.
+- [x] Iter 20: profile capture finally working end-to-end via
+  standalone `_artifacts/capture_xla_profile.py` SCP'd alongside the
+  launcher. 4 trace dirs uploaded to
+  `gs://tinyaya-stage2-tpu/profiles/iter20-*` (`9131e0f`).
 
-- [ ] Lever 1 -- `batch_size: 8 -> 16` in
-  `configs/stage2_tpu_v6e_spot.yaml` (KEEP
-  `xla_grad_checkpoint: true`).
-- [ ] Lever 2 -- `data.max_frames: 300 -> 400` in same config.
-- [ ] Lever 3 -- patch `tpu_backend.py:get_memory_info` to call
-  `xm.mark_step()` + `xm.wait_device_ops()` before
-  `xm.get_memory_info(device)` so SPMD lazy tensors materialise
-  before the host reads HBM.
-- [ ] Lever 4 -- `xp.start_server(9012)` at rank-0 startup;
-  `xp.StepTrace('train_step', step_num=step)` per step; auto-
-  capture 30s trace at step 30 -> `/tmp/xla_profile/iter18-<ts>/`;
-  launcher post-train hook gsutil-uploads to
-  `gs://tinyaya-stage2-tpu/profiles/`.
-- [ ] Lever 5 -- `export PT_XLA_DEBUG_LEVEL=1` in launcher
-  (compile-cause + recompile reasons; level 2 was rejected as too
-  noisy).
-- [ ] Lever 6 (deferred) -- in-code TODO comment block in
-  `train_hierarchical.py:macro-step` documenting the three
-  re-enable variants (6a fused / 6b clip_grad_value_ / 6c vanilla).
-- [ ] Build iter 18 tarball; upload to
-  `gs://tinyaya-stage2-tpu/code/tinyaya-repo-iter18.tar.gz`.
+### Phase 13 — Iter 24 5000-step production run (active)
+
+Goal: complete the first 5000-step Phase 5 production run on
+single-host v6e-8. Iter 21/22/23 all OOM-crashed at step 258 with
+89 GiB HLO temp on a 31 GiB chip; root cause was XLA SPMD
+``cache_all_gather=True`` (defaulted, openxla/xla #20508) retaining
+the all-gather output of every sharded layer's full params from
+forward through backward. Iter 24 applies the
+``apply_backward_optimization_barrier`` per FSDPv2-wrapped layer
+(pytorch/xla #6379 step 5; HF Llama 2 SPMD reference pattern) and
+re-enables every previously gated knob.
+
+- [x] Iter 21: rename canary -> production v6e config; start 5000-step
+  run (`61b87fb`). OOM at step 258.
+- [x] Iter 22: stable grad topology via `set_to_none=False` +
+  requires_grad iteration (`7948cbb`). Same OOM at step 258.
+- [x] Iter 23: gate lever 6 behind `enable_clip_grad_norm: false`
+  (`659ecb9`). Same OOM at step 258.
+- [ ] Iter 24 fix A -- new helper
+  `_apply_fsdpv2_backward_barriers(model)` in
+  `scripts/train_hierarchical.py`; called after `backend.wrap_model`
+  on the TPU path. Walks `model.modules()`, registers a backward
+  hook that fires `xm.optimization_barrier_(grads + grad_input)` on
+  every inner `SpmdFullyShardedDataParallel` instance. Logs
+  `[fsdpv2] applied backward optimization barrier to N layers`.
+- [ ] Iter 24 fix B -- drop `--xla_tpu_enable_flash_attention=false`
+  from `_artifacts/launch_train_v6e_v2.sh` LIBTPU_INIT_ARGS so XLA
+  picks the FlashAttention TPU kernel (sidesteps torch_xla 2.6+ SDPA
+  2.5x SPMD memory regression -- pytorch/xla #8423).
+- [ ] Iter 24 re-enable lever 6 -- flip
+  `enable_clip_grad_norm: false -> true` in
+  `configs/stage2_tpu_v6e_spot.yaml`; bump
+  `wandb_run_name -> v6e-spot-stage2-5k-iter24`.
+- [ ] Build iter 24 tarball; upload to
+  `gs://tinyaya-stage2-tpu/code/tinyaya-repo-iter24.tar.gz`.
 - [ ] Deploy + launch on `tinyaya-stage2-spot-v6e8-eu`.
 - [ ] Announce new wandb URL on first detection.
-- [ ] Validate first 30 steps: no OOM (HBM < 25 GB), real HBM in
-  diagnose log, sec/step ~< 4s.
-- [ ] Reach step 200 with monotonic loss decrease; canonical save
-  to `gs://.../step_000200_final/` succeeds (overwrites iter 17).
+- [ ] Validate `[fsdpv2] applied backward optimization barrier to N
+  layers` line is present (N >= 36 expected).
+- [ ] First 30 steps: no OOM, HBM < 25 GiB, sec/step ~< 4 s.
+- [ ] Past historical step 258 OOM threshold without
+  RESOURCE_EXHAUSTED.
+- [ ] Reach step 5000 with monotonic loss decrease; canonical save
+  to `gs://.../stage2-tpu-v6e-spot/step_005000_final/` succeeds.
 - [ ] gsutil cp profile dir to GCS; verify TensorBoard-readable.
-- [ ] Commit iter 18 with all 5 levers + lever 6 TODO.
+- [ ] Commit iter 24.
 
 ## Out of scope
 

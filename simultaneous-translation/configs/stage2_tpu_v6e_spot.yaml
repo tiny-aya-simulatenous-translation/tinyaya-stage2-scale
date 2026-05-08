@@ -48,17 +48,21 @@ train:
   # ~22-26 GB (~80%, OOM tail risk) -- deferred to iter 19+.
   batch_size: 16
   grad_accum: 2
-  # iter 21: main 5000-step production run (Phase 5).
-  # 5000 * 4.28 s/step = 21400 s = 357 min = ~6.0 h wall clock,
-  # plus ~25 min first-step compile -> ~6.4 h end-to-end.
+  # iter 24: main 5000-step production run (Phase 13).
+  # Re-launches iter 21's target with the FSDPv2 backward barrier fix
+  # for the cache_all_gather OOM. Expected wall clock: 5000 * ~4.3
+  # s/step = ~6.0 h plus ~25 min compile = ~6.4 h end-to-end.
   # warmup_steps=200 = 4% of total (standard 1-5% warmup band).
   max_steps: 5000
   warmup_steps: 200
-  # iter 23: gate lever 6 (fused clip_grad_norm). Iter 21/22 both
-  # OOM'd at step 258 inside the lever 6 mark_step compile (89 GiB
-  # HLO temp on a 31 GiB chip). Disabling clip lets the long run
-  # complete; train/grad_norm wandb metric will read 0.0.
-  enable_clip_grad_norm: false
+  # iter 24: lever 6 (fused clip_grad_norm) re-enabled now that the
+  # underlying OOM is fixed by the per-layer FSDPv2 backward barriers
+  # (see train_hierarchical.py::_apply_fsdpv2_backward_barriers). The
+  # iter 21/22/23 OOM at step 258 was the documented
+  # ``cache_all_gather=True`` ring-buffer accumulation
+  # (openxla/xla #20508 + pytorch/xla #6379 step 5), not lever 6
+  # itself; gating clip is no longer necessary.
+  enable_clip_grad_norm: true
   depth_chunk_size: 16
   # iter 14: bf16 with attention-mask monkey-patch (train_hierarchical.py
   # _patch_attention_mask_for_bf16 clamps mask values >= -1e4 to avoid
@@ -113,4 +117,6 @@ logging:
   keep_last_n: 5
   use_wandb: true
   wandb_project: tinyaya-stage2-tpu
-  wandb_run_name: v6e-spot-stage2-5k
+  # iter 24: fresh numerical run id so the new run is distinguishable
+  # from the iter 21/22/23 OOM-crashed attempts in the wandb UI.
+  wandb_run_name: v6e-spot-stage2-5k-iter24

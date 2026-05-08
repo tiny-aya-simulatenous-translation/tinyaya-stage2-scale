@@ -328,7 +328,20 @@ class TPUBackend(BackendBase):
                 sharded.append(v)
             return tuple(sharded)
 
-        layer_type_names = ("CohereDecoderLayer", "MoshiDecoderLayer")
+        # iter 24: include the actual HF transformers class name
+        # (``Cohere2DecoderLayer``) for the Cohere2 backbone. The
+        # legacy ``CohereDecoderLayer`` entry was a stale guess that
+        # NEVER matched on this build of transformers, leaving the
+        # 36 backbone layers without per-layer FSDPv2 wraps. That
+        # is the underlying cause of the iter 21/22/23 step-258 OOM
+        # (cache_all_gather=True coalesces the all-gather of every
+        # sharded param into a single coarse-grained ring buffer
+        # which overflows HBM at the first graph-hash variance).
+        layer_type_names = (
+            "Cohere2DecoderLayer",
+            "CohereDecoderLayer",
+            "MoshiDecoderLayer",
+        )
 
         def _has_trainable(m: nn.Module) -> bool:
             """True if any parameter in ``m`` (recursive) requires grad."""
@@ -524,13 +537,14 @@ class TPUBackend(BackendBase):
                 # "22.67 GiB / 31.25 GiB" per chip from SSH.
                 import subprocess as _sp
                 import sys
+
                 try:
-                    tpu_info = str(
-                        Path(sys.prefix) / "bin" / "tpu-info"
-                    )
+                    tpu_info = str(Path(sys.prefix) / "bin" / "tpu-info")
                     out = _sp.run(
                         [tpu_info, "--metric", "hbm_usage"],
-                        capture_output=True, text=True, timeout=10,
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
                         env={**os.environ, "PJRT_DEVICE": "TPU"},
                     )
                     if out.returncode == 0 and "N/A" not in out.stdout:
