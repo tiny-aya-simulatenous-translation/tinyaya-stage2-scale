@@ -25,6 +25,9 @@ preserving stability, checkpoint safety, and evaluation quality.
 - **Control-plane update:** `.factory/orchestration/CONTROL_PLANE.md`
   and `.factory/orchestration/TPU_OPTIMIZATION_SPEC.md` are the new
   operational sources for optimization work.
+- **Phase 1 result:** `opt-1-log10` completed 300/300 steps without
+  NaN/OOM/traceback; W&B run `naswac6g` finished with p50 `5.9509s`,
+  p90 `5.9741s`, p99 `6.2421s`, and examples/sec `43.08`.
 
 ## Definition of Done
 
@@ -35,7 +38,7 @@ preserving stability, checkpoint safety, and evaluation quality.
   control plane consistently.
 - [x] Phase 0 baseline metrics from iter 24h are captured in the
   optimization record.
-- [ ] At least one low-risk optimization candidate passes a 300-step TPU
+- [x] At least one low-risk optimization candidate passes a 300-step TPU
   gate without NaN/OOM/late-recompile.
 - [ ] Best promoted optimization config completes a 1000-step validation
   pass.
@@ -59,7 +62,7 @@ preserving stability, checkpoint safety, and evaluation quality.
 
 ### Phase 1 — Low-risk sync/logging optimization
 
-- [ ] Test `log_every=10` against baseline.
+- [x] Test `log_every=10` against baseline.
 - [ ] If stable, test `log_every=25`.
 - [ ] Promote the fastest logging cadence that keeps monitoring useful.
 

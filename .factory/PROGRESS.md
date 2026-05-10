@@ -26,6 +26,88 @@ moved to `.factory/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-05-10T06:06:51Z | feat/tpu-support@0e7f6dc | done | verify
+opt-1-log25 config added and repository verification passed.
+
+New config: simultaneous-translation/configs/stage2_tpu_v6e_spot_opt_log25.yaml
+.factory/VERIFY.md: all 20 fenced bash blocks passed; TPU probes skipped on workstation because PJRT_DEVICE is unset.
+
+
+## 2026-05-10T05:28:13Z | feat/tpu-support@0e7f6dc | done | verify
+Repository verification passed after opt-1-log10 result updates.
+
+.factory/VERIFY.md: all 20 fenced bash blocks passed; TPU probes skipped on workstation because PJRT_DEVICE is unset.
+
+
+## 2026-05-10T05:27:27Z | feat/tpu-support@0e7f6dc | done | exec
+Phase 1 opt-1-log10 completed 300-step TPU gate.
+
+candidate: opt-1-log10
+base: iter24h
+config diff: logging.log_every 1->10; max_steps=300; perf.enabled=true
+run ID: naswac6g (https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/naswac6g)
+run length: 300 steps; exit status 0; canonical final save completed at gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-log10/step_000300_final
+metrics: p50=5.9509s, p90=5.9741s, p99=6.2421s, examples/sec=43.08, frame-tokens/sec=17230.47, steady_window_steps=26
+baseline delta: p50 11.81% faster, p90 14.41% faster, p99 13.89% faster, examples/sec 13.54% higher
+loss: final train/loss=6.6955 (text=10.1544, audio=5.6800); loss decreased from step 10 through step 300
+safety: no NaN/OOM/RESOURCE_EXHAUSTED/traceback observed; compile_cause_count=0 in poller
+verdict: promote-to-next-gate; next Phase 1 candidate is opt-1-log25 or a 1000-step validation with log10.
+
+
+## 2026-05-10T05:06:35Z | feat/tpu-support@0e7f6dc | info | exec
+Phase 1 opt-1-log10 T+60 check-in continued.
+
+W&B: https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/naswac6g
+State running; PID alive; approx step 100; steps 30-100 around 5.94-6.09s/step vs iter24h p50 6.75s; loss decreasing 9.1390 to 7.5596; no NaN/OOM/traceback; user chose Continue to completion/T+90.
+
+
+## 2026-05-10T04:52:59Z | feat/tpu-support@0e7f6dc | info | exec
+Phase 1 opt-1-log10 T+45 check-in continued.
+
+W&B: https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/naswac6g
+State running; PID alive; step 10 first loss 9.1390 (text 14.0373/audio 7.7353), 215.76s/step likely compile/materialization-dominated; no NaN/OOM/traceback; user chose Continue to T+60.
+
+
+## 2026-05-10T04:35:55Z | feat/tpu-support@0e7f6dc | info | exec
+Phase 1 opt-1-log10 T+30 check-in continued.
+
+W&B: https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/naswac6g
+State running; PID alive; reached step-1 diagnostic; no loss yet due log_every=10; no NaN/OOM/traceback; user chose Continue to T+45.
+
+
+## 2026-05-10T04:19:27Z | feat/tpu-support@0e7f6dc | info | exec
+Phase 1 opt-1-log10 T+15 check-in continued.
+
+W&B: https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/naswac6g
+State running; PID alive; no first step yet; no NaN/OOM/traceback; user chose Continue to T+30.
+
+
+## 2026-05-10T03:59:52Z | feat/tpu-support@0e7f6dc | info | session
+SessionEnd (other): 32 item(s) carried forward
+
+Next steps:
+- At least one low-risk optimization candidate passes a 300-step TPU
+- Best promoted optimization config completes a 1000-step validation
+- Best promoted optimization config completes a 5000-step production
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `log_every=10` against baseline.
+- If stable, test `log_every=25`.
+- Promote the fastest logging cadence that keeps monitoring useful.
+- Add opt-in `train.compile_warmup_steps` for TPU.
+
+
+## 2026-05-10T03:59:51Z | feat/tpu-support@0e7f6dc | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-10T03:56:24Z | feat/tpu-support@0e7f6dc | done | exec
+Started Phase 1 live TPU run opt-1-log10 on v6e-8.
+
+W&B: https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/naswac6g
+Config: configs/stage2_tpu_v6e_spot_opt_log10.yaml; max_steps=300; log_every=10; perf.enabled=true; effective_batch=256.
+Redeployed to existing ACTIVE QR tinyaya-stage2-spot-v6e8-eu-qr; no QR recreate.
+
+
 ## 2026-05-10T03:43:50Z | feat/tpu-support@cd08e96 | done | plan
 Phase 0 baseline captured for iter24h and opt-in perf instrumentation added.
 
