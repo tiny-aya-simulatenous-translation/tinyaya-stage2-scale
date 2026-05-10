@@ -12,6 +12,11 @@ TinyAya Stage 2 production run. It is called by `tpu-orchestrate`
 after every PATCH and can also be invoked directly via
 `/tpu-redeploy`.
 
+It is subordinate to the unified TPU control plane at
+`.factory/orchestration/CONTROL_PLANE.md`: this skill deploys an
+already-approved patch or experiment, but it does not choose
+optimization candidates.
+
 ## Topology
 
 Active topology: **single-host TPU v6e-8 in `europe-west4-a`** (QR

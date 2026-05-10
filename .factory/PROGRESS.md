@@ -26,6 +26,28 @@ moved to `.factory/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-05-10T03:37:00Z | feat/tpu-support@7efcd47 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-10T03:34:49Z | feat/tpu-support@7efcd47 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-10T03:33:52Z | feat/tpu-support@7efcd47 | done | plan
+Unified TPU optimization control plane and experiment phases under .factory/orchestration.
+
+Added CONTROL_PLANE.md, TPU_OPTIMIZATION_SPEC.md, optimization playbooks/diagrams, refreshed PLAN.md, and updated skills/droids/hooks/memories/VERIFY to use the new memory boundaries.
+
+
+## 2026-05-10T03:17:51Z | feat/tpu-support@7efcd47 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-10T02:51:50Z | feat/tpu-support@7efcd47 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
 ## 2026-05-10T02:49:54Z | feat/tpu-support@cbdff89 | done | verify
 Repository verification passed after iter 24h documentation and checkpoint-status updates.
 

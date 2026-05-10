@@ -116,6 +116,8 @@ python3 phase-3-data-generation-pipeline/cli.py --help > /dev/null \
 # orchestrator spec + diagrams + playbook all parseable / non-empty
 test -s .factory/orchestration/SPEC.md
 test -s .factory/orchestration/README.md
+test -s .factory/orchestration/CONTROL_PLANE.md
+test -s .factory/orchestration/TPU_OPTIMIZATION_SPEC.md
 for d in .factory/orchestration/diagrams/*.mmd; do test -s "$d"; done
 for p in .factory/orchestration/playbook/*.md; do test -s "$p"; done
 ```
@@ -126,6 +128,8 @@ test -s .factory/droids/tpu-watchdog.md
 test -s .factory/droids/tpu-diagnoser.md
 test -s .factory/skills/tpu-orchestrate/SKILL.md
 test -s .factory/skills/tpu-redeploy/SKILL.md
+test -s .factory/skills/keep-context-fresh/SKILL.md
+test -s .factory/skills/recall-context/SKILL.md
 ```
 
 ```bash
@@ -138,4 +142,19 @@ python3 -m py_compile _artifacts/scheduled_checkin.py
 # orch_state.json is valid JSON if present
 test ! -e _artifacts/orch_state.json \
   || python3 -c "import json; json.load(open('_artifacts/orch_state.json'))"
+```
+
+```bash
+# optimization control-plane files are wired
+for f in \
+  .factory/orchestration/diagrams/06-optimization-flow.mmd \
+  .factory/orchestration/diagrams/07-control-plane.mmd \
+  .factory/orchestration/diagrams/08-memory-lifecycle.mmd \
+  .factory/orchestration/playbook/optimization-experiment-matrix.md \
+  .factory/orchestration/playbook/perf-metrics-schema.md; do
+  test -s "$f" || { echo "EMPTY: $f"; exit 1; }
+done
+grep -q "TPU_OPTIMIZATION_SPEC.md" .factory/orchestration/README.md
+grep -q "CONTROL_PLANE.md" .factory/skills/tpu-orchestrate/SKILL.md
+grep -q "ORCHESTRATION_CONTROL_PLANE" .factory/hooks/session_start.py
 ```

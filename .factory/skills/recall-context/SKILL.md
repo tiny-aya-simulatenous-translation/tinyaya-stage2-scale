@@ -24,14 +24,20 @@ appear in the slash-command palette.
 2. Read `.factory/memories.md` in full.
 3. Read `.factory/PLAN.md` in full.
 4. Read root `AGENTS.md` and the nearest subproject `AGENTS.md`.
+5. For TPU/orchestration/optimization tasks, read
+   `.factory/orchestration/CONTROL_PLANE.md` and the relevant spec:
+   `TPU_OPTIMIZATION_SPEC.md` for performance work, or `SPEC.md` for
+   live run supervision and recovery.
 
-5. Produce no chat output. Internal reasoning only. The agent should
+6. Produce no chat output. Internal reasoning only. The agent should
    make subsequent decisions consistent with what it just read.
 
 ## Success criteria
 
 - The next action references at least one memory entry by date or
   decision title (e.g. "per memories.md 2026-05-03 decision on bf16").
+- TPU work also references the control plane or active orchestration
+  spec in the plan.
 
 ## When NOT to invoke
 

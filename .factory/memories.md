@@ -22,6 +22,29 @@
 
 ## Architecture decisions
 
+### 2026-05-10: Unified TPU optimization control plane
+
+**Decision:** `.factory/orchestration/CONTROL_PLANE.md` is now the
+source of truth for how TPU optimization specs, self-healing run
+orchestration, skills, droids, hooks, and memory files interact.
+`tpu-orchestrate` remains the single master TPU run-control skill and
+selects either self-healing mode (`SPEC.md`) or optimization mode
+(`TPU_OPTIMIZATION_SPEC.md`).
+
+**Why:** Iter 24h created a stable production baseline, so the next
+phase needs controlled throughput experiments without duplicating state
+across `PLAN.md`, `PROGRESS.md`, `memories.md`, skills, and playbooks.
+The boundary is:
+`PLAN.md` = active checklist, `PROGRESS.md` = chronological event log,
+`memories.md` = durable decisions/gotchas, `.factory/orchestration/` =
+operational specs/playbooks, `_artifacts/` = ephemeral logs/profiles.
+
+**Follow-up:** Future TPU optimization candidates should follow
+`TPU_OPTIMIZATION_SPEC.md` and
+`playbook/optimization-experiment-matrix.md`; promoted configs or
+durable rejected knobs get compact memory entries, while routine run
+events stay in `PROGRESS.md`.
+
 ### 2026-05-10: Iter 24h -- first 5000-step v6e-8 production run completed
 
 **Decision (validated):** Iter 24h is the first successful Phase 5

@@ -5,6 +5,10 @@ orchestrator**. Implementation files live elsewhere (skills, droids,
 poller); this folder holds the **spec + diagrams + playbook** that
 drive how the orchestrator behaves.
 
+The folder now also owns the TPU optimization control plane: how
+optimization phases, skills, hooks, droids, memories, and transient
+artifacts work together without duplicating state.
+
 ## 2026-05-10 status
 
 The orchestrator has now driven the v6e-8 path through the first full
@@ -15,11 +19,17 @@ canonical checkpoint to
 The same playbook remains active for future cleanup, evaluation
 follow-ups, and v6e-64 scale-up attempts.
 
+The active optimization plan is tracked in
+`TPU_OPTIMIZATION_SPEC.md`; cross-file responsibilities are defined in
+`CONTROL_PLANE.md`.
+
 ## Layout
 
 ```
 .factory/orchestration/
-|-- SPEC.md                            # Consolidated spec (this is the entry point)
+|-- CONTROL_PLANE.md                   # Skill/hook/droid/memory ownership map
+|-- TPU_OPTIMIZATION_SPEC.md           # Exa-informed TPU optimization phases
+|-- SPEC.md                            # Self-healing run-control spec
 |-- README.md                          # This file
 |-- diagrams/
 |   |-- 01-architecture.mmd            # 4-tier architecture (Mermaid flowchart)
@@ -27,11 +37,16 @@ follow-ups, and v6e-64 scale-up attempts.
 |   |-- 03-sequence.mmd                # "How the loop runs in practice" v2
 |   |-- 04-checkin-cadence.mmd         # T+15/30/45/60/90 timeline
 |   |-- 05-tier3-escalation.mmd        # VM corruption flow
+|   |-- 06-optimization-flow.mmd       # Optimization phase progression
+|   |-- 07-control-plane.mmd           # Skills/hooks/droids/memory graph
+|   |-- 08-memory-lifecycle.mmd        # Artifacts -> progress -> memories
 |   `-- render.sh                      # mmdc helper to produce SVG/PNG
 `-- playbook/
     |-- diagnosis-table.md             # 13-entry symptom -> patch table
     |-- tier-definitions.md            # T0/T1/T2/T3/T4 escalation tiers
-    `-- checkin-protocol.md            # 4-option AskUser template
+    |-- checkin-protocol.md            # 4-option AskUser template
+    |-- optimization-experiment-matrix.md
+    `-- perf-metrics-schema.md
 ```
 
 ## Implementation files (NOT here -- in their natural Factory locations)
@@ -58,12 +73,14 @@ Requires `mmdc` (mermaid-cli). Falls back to `npx @mermaid-js/mermaid-cli`.
 
 ## Read order for a new contributor
 
-1. `SPEC.md` (start here)
-2. `diagrams/03-sequence.mmd` (the runtime sequence -- the "how does it work")
-3. `playbook/diagnosis-table.md` (the failure -> patch playbook)
-4. `playbook/tier-definitions.md` (escalation ladder)
-5. `playbook/checkin-protocol.md` (the human-in-loop mechanics)
-6. The implementation files in their natural locations
+1. `CONTROL_PLANE.md` (source-of-truth boundaries)
+2. `TPU_OPTIMIZATION_SPEC.md` (active optimization phases)
+3. `playbook/optimization-experiment-matrix.md` (candidate table)
+4. `playbook/perf-metrics-schema.md` (metrics and promotion fields)
+5. `SPEC.md` (self-healing runtime loop)
+6. `diagrams/03-sequence.mmd` (the runtime sequence)
+7. `playbook/diagnosis-table.md` (failure -> patch playbook)
+8. The implementation files in their natural locations
 
 ## Versioning
 

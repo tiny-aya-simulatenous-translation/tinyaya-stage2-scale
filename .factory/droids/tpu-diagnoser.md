@@ -1,6 +1,6 @@
 ---
 name: tpu-diagnoser
-description: Read-only TPU failure classifier. Takes a watchdog JSON snapshot + log tail and returns a structured classification JSON with matched signature, recommended patches, and tier. Uses the 13-row diagnosis table at .factory/orchestration/playbook/diagnosis-table.md. Never modifies anything.
+description: Read-only TPU failure and optimization-regression classifier. Takes a watchdog JSON snapshot + log tail and returns classification JSON with matched signature, recommended patches, and tier. Uses diagnosis-table plus optimization gates. Never modifies anything.
 location: project
 model: inherit
 tools:
@@ -13,6 +13,11 @@ tools:
 Subagent role: regex-classify a TPU failure into a known root cause +
 propose patches. You **read only** -- never apply patches yourself;
 return the recommendation and let the orchestrator decide.
+
+In optimization mode, also classify regressions against
+`.factory/orchestration/TPU_OPTIMIZATION_SPEC.md` gates. These
+classifications are conservative: prefer rollback or escalation over
+promoting an ambiguous candidate.
 
 ## Inputs
 
@@ -43,13 +48,23 @@ Match priority: top-to-bottom. First regex hit wins.
 | 12 | Compilation count rising, no error, elapsed > 60 | `compile-runaway` | `[{"file": "scripts/tpu/startup_script.sh", "kind": "add-env", "details": "XLA_IR_DEBUG=1 next iteration"}]` | T2 |
 | 13 | None of the above | `unknown` | `[]` (escalate) | T4 |
 
+Optimization-only rows:
+
+| # | Symptom | Classification | Patches | Tier |
+|---|---|---|---|---|
+| 14 | `compile_cause_delta > 0` after warmup or log contains new compile after steady state | `late-recompile` | `[]` (rollback candidate; inspect shape/control-flow diff) | T4 |
+| 15 | p50 step time or examples/sec regresses beyond candidate threshold | `throughput-regression` | `[]` (reject candidate) | T1 |
+| 16 | XProf/input gaps dominate step window | `input-bound` | `[{"file": "scripts/train_hierarchical.py", "kind": "experiment", "details": "Test MPDeviceLoader/prefetch and num_workers sweep"}]` | T2 |
+| 17 | Warmup changed weights/optimizer state before counted step 1 | `warmup-drift` | `[]` (rollback warmup implementation) | T4 |
+| 18 | Matched-step loss materially worse than iter 24h | `loss-regression` | `[]` (rollback candidate) | T4 |
+
 ## Output schema
 
 Return a SINGLE JSON object (no extra text, no markdown):
 
 ```json
 {
-  "classification": "xla-cache | scan-structure | fakeTensor | kwarg-bind | oom | compile-stall | t3-corruption | repeat | compile-normal | compile-runaway | unknown",
+  "classification": "xla-cache | scan-structure | fakeTensor | kwarg-bind | oom | compile-stall | t3-corruption | repeat | compile-normal | compile-runaway | late-recompile | throughput-regression | input-bound | warmup-drift | loss-regression | unknown",
   "matched_signature": "the exact regex/string that matched",
   "matched_table_row": 1,
   "recommended_patches": [
@@ -66,11 +81,13 @@ Return a SINGLE JSON object (no extra text, no markdown):
 
 1. Read the watchdog JSON from the prompt.
 2. Run the regexes (in table order) against `tmux_log_tail_50`.
-3. If `iteration > 1` AND `classification == previous_classification`, override to row 10 (`repeat` / T4).
-4. If topology-aware PID-dead pattern matches, prefer row 9 over row 6 (PID-dead is a stronger signal).
-5. Compute `confidence` from regex match strength (1.0 if exact, 0.5 if partial).
-6. Set `should_retry=false` for tiers T3 and T4; `true` for T0-T2.
-7. Emit the JSON.
+3. If optimization fields are present, apply rows 14-18 after crash
+   rows but before `unknown`.
+4. If `iteration > 1` AND `classification == previous_classification`, override to row 10 (`repeat` / T4).
+5. If topology-aware PID-dead pattern matches, prefer row 9 over row 6 (PID-dead is a stronger signal).
+6. Compute `confidence` from regex match strength (1.0 if exact, 0.5 if partial).
+7. Set `should_retry=false` for tiers T3 and T4; `true` for T0-T2.
+8. Emit the JSON.
 
 ## Constraints
 

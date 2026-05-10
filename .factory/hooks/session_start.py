@@ -15,6 +15,9 @@ from _lib import (  # noqa: E402
     PLAN_FILE,
     VERIFY_FILE,
     MEMORIES_FILE,
+    ORCHESTRATION_README,
+    ORCHESTRATION_CONTROL_PLANE,
+    ORCHESTRATION_TPU_OPT_SPEC,
     emit,
     find_relevant_subproject_agents,
     read_file_safe,
@@ -55,6 +58,15 @@ def main() -> None:
 
     parts.append("\n## memories.md (decisions and gotchas)\n")
     parts.append(read_file_safe(MEMORIES_FILE, max_lines=120))
+
+    parts.append("\n## orchestration control plane\n")
+    parts.append(read_file_safe(ORCHESTRATION_CONTROL_PLANE, max_lines=120))
+
+    parts.append("\n## orchestration README\n")
+    parts.append(read_file_safe(ORCHESTRATION_README, max_lines=80))
+
+    parts.append("\n## TPU optimization spec (summary)\n")
+    parts.append(read_file_safe(ORCHESTRATION_TPU_OPT_SPEC, max_lines=120))
 
     additional_context = "\n".join(parts).strip()
 

@@ -10,6 +10,11 @@ verify; humans can call it manually with `/plan` (which delegates to
 the `plan-driver` custom droid for full regeneration) or by adding
 `#plan <task>` quick-capture lines.
 
+In the unified TPU control plane, `PLAN.md` owns only the active goal,
+phase checklist, and Definition of Done. Put chronological run events in
+`PROGRESS.md`, durable decisions in `memories.md`, and operating
+procedures in `.factory/orchestration/`.
+
 ## Inputs
 
 One of:

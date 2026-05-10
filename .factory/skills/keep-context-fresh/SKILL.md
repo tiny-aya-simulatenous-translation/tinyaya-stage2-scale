@@ -28,14 +28,23 @@ session begins from the same snapshot of state.
    - Root `/AGENTS.md` always.
    - The closest subproject `AGENTS.md` if cwd is under it.
 
-3. Render a concise state summary in chat using `<json-render>`:
+3. For TPU, orchestration, or multi-step optimization work, also read:
+   - `.factory/orchestration/CONTROL_PLANE.md`
+   - `.factory/orchestration/README.md`
+   - `.factory/orchestration/TPU_OPTIMIZATION_SPEC.md` when the goal is
+     throughput, step-time, compile, input-pipeline, or TPU cost work
+   - `.factory/orchestration/SPEC.md` when the goal is live run
+     supervision, deployment, retry, or failure recovery
+
+4. Render a concise state summary in chat using `<json-render>`:
    - Goal (from PLAN heading)
    - Top 5 unchecked PLAN items
    - Top 5 most recent PROGRESS entries (with status)
    - Open verification commands
-   - One-line "What I'd do next" suggestion derived from PLAN + PROGRESS
+   - One-line "What I'd do next" suggestion derived from PLAN,
+     PROGRESS, and the control plane when relevant
 
-4. Ask the user to confirm the goal before proceeding to actual edits.
+5. Ask the user to confirm the goal before proceeding to actual edits.
 
 ## Inputs
 
@@ -45,6 +54,8 @@ session begins from the same snapshot of state.
 
 - All four memory files were read in the current session (verifiable by
   Droid's tool log).
+- For TPU work, the control plane and relevant orchestration spec were
+  also read.
 - The user has either confirmed the goal or asked for plan regeneration
   (in which case invoke the `plan-driver` custom droid).
 

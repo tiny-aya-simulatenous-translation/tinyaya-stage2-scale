@@ -1,6 +1,6 @@
 ---
 name: tpu-watchdog
-description: Read-only TPU production/canary state inspector. Returns a structured JSON snapshot of wandb run state, gcloud SSH telemetry (TPU duty / HBM / RSS / PID(s)), and the last 50 lines of the tmux training log. Called every 5-10 min by the tpu-orchestrate skill. Never modifies anything. Topology-aware -- on single-host v6e-8 returns one worker entry; on legacy v4-32 / future v6e-64 returns one entry per host.
+description: Read-only TPU production/canary/optimization state inspector. Returns structured JSON for wandb, gcloud SSH telemetry, TPU duty, HBM, RSS, PIDs, tmux log tail, and optional optimization metrics. Called every 5-10 min by tpu-orchestrate. Never modifies anything. Topology-aware.
 location: project
 model: inherit
 tools:
@@ -17,6 +17,10 @@ spot** at
 it was the multi-host v4-32 spot at `tinyaya-stage2-spot-v4-canary`
 (zone `us-central2-b`). You **read only** -- never patch, restart,
 or recreate anything.
+
+For TPU optimization runs, also report any available performance fields
+defined in `.factory/orchestration/playbook/perf-metrics-schema.md`.
+Missing optimization fields must be `null`, not omitted.
 
 ## Topology-aware behaviour
 
@@ -68,7 +72,13 @@ etc.
   "first_step_eta": "compiling|stalled|progressing|past",
   "verdict": "compiling|stalled|crashed|progressing|success",
   "topology": "v6e-8-eu|v4-32-uc2b|v6e-64-eu",
-  "tmux_session_count": 1
+  "tmux_session_count": 1,
+  "last_step_time_s": null,
+  "p50_step_time_s": null,
+  "examples_per_sec": null,
+  "frame_tokens_per_sec": null,
+  "profile_path": null,
+  "compile_cause_delta": null
 }
 ```
 
@@ -107,7 +117,9 @@ have length 8.
    ```
 4. Compute verdict per the table above.
 5. Compute `next_checkin_at` from `_artifacts/orch_state.json` -> `next_checkin_min` and `deploy_t0_ts`.
-6. Emit the JSON.
+6. Parse optional optimization metrics from W&B summary, poller entries,
+   or tmux log lines when present.
+7. Emit the JSON.
 
 ## Constraints
 

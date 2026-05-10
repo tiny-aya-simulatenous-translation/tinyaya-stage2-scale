@@ -1,5 +1,19 @@
 # TPU Canary Self-Healing Orchestrator -- SPEC
 
+## 2026-05-10 control-plane update
+
+This file remains the source of truth for the **self-healing run loop**
+(PATCH -> DEPLOY -> WATCH -> CLASSIFY -> DECIDE). TPU throughput
+optimization now has its own connected spec:
+`TPU_OPTIMIZATION_SPEC.md`.
+
+Read `CONTROL_PLANE.md` first for the unified map of skills, droids,
+hooks, memory files, and orchestration specs. The master TPU entry point
+is still `tpu-orchestrate`; it selects self-healing mode from this file
+or optimization mode from `TPU_OPTIMIZATION_SPEC.md`.
+
+**Version:** v4 control-plane banner (2026-05-10)
+
 ## 2026-05-10 update banner
 
 The original SPEC below describes the v4-32 spot canary in
@@ -23,7 +37,7 @@ Future orchestrator use should treat "canary" language below as the
 same bounded self-healing loop applied to production cleanup and
 scale-up runs.
 
-**Version:** v3 (2026-05-10)
+**Version:** v4 (2026-05-10)
 **Status:** Approved and production-validated on single-host v6e-8 EU
 **Branch:** `feat/tpu-support`
 **Implementation:** Option B (Skills + Custom Droids hybrid)

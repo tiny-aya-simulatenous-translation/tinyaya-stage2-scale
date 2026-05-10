@@ -1,6 +1,6 @@
 ---
 name: tpu-orchestrate
-description: Self-healing orchestrator playbook for the single-host v6e-8 production TPU run. Encodes the diagnosis -> recovery table, the T0-T4 escalation tiers, and the 15/30/45/60/90 min check-in cadence. Pairs with tpu-watchdog and tpu-diagnoser droids.
+description: Master TPU run-control and optimization playbook for single-host v6e-8 production runs. Encodes self-healing diagnosis/recovery, T0-T4 escalation tiers, check-in cadence, and the optimization-mode gates from .factory/orchestration/TPU_OPTIMIZATION_SPEC.md. Pairs with tpu-watchdog and tpu-diagnoser droids.
 user-invocable: true
 disable-model-invocation: false
 ---
@@ -17,6 +17,14 @@ production run (W&B `7rrjupc7`, final checkpoint
 Use this skill for future cleanup, evaluation-adjacent reruns, or
 scale-up attempts, not to re-run iter 24h unless explicitly asked.
 
+For throughput work, run this skill in **optimization mode**. Read
+`.factory/orchestration/CONTROL_PLANE.md` first, then
+`.factory/orchestration/TPU_OPTIMIZATION_SPEC.md` and
+`.factory/orchestration/playbook/optimization-experiment-matrix.md`.
+Optimization mode preserves iter 24h as the fallback baseline and
+promotes candidates only after throughput, stability, memory, compile,
+and quality gates pass.
+
 Single-host topology: ONE Python process drives all 8 chips via SPMD.
 There is exactly one tmux session, one PID, one wandb run; no
 cross-host rendezvous, no host-index gating, no shared-mode wandb
@@ -28,6 +36,12 @@ Drive the run to a known-good first compile + decreasing loss with
 check-ins or on circuit-breaker trips. Full design at
 `.factory/orchestration/SPEC.md`.
 
+Unified control-plane map:
+`.factory/orchestration/CONTROL_PLANE.md`.
+
+Optimization plan:
+`.factory/orchestration/TPU_OPTIMIZATION_SPEC.md`.
+
 ## Loop you run
 
 ```
@@ -38,16 +52,35 @@ PATCH -> DEPLOY -> WATCH (poll every 5-10 min)
                      +--> on success (step>=1 + loss decreasing): pause for next phase
 ```
 
+## Mode selection
+
+Choose the mode from the user's goal:
+
+| Mode | When | Primary spec |
+|---|---|---|
+| `self-healing` | supervising a live run, retrying a crash, or deploying a known patch | `.factory/orchestration/SPEC.md` |
+| `optimization` | improving step time, examples/sec, compile warmup, input pipeline, batch shape, or TPU cost | `.factory/orchestration/TPU_OPTIMIZATION_SPEC.md` |
+
+Optimization mode uses the same WATCH -> CLASSIFY -> DECIDE discipline,
+but success means a candidate passes its promotion gate, not merely
+`step>=1`.
+
 ## Tools you must use
 
 - **tpu-watchdog droid** (Task tool): structured JSON snapshot of
-  wandb + gcloud + ps state. Call every 5-10 min wall.
+  wandb + gcloud + ps state. In optimization mode, also capture any
+  available step-time, examples/sec, profile path, and compile-delta
+  fields. Call every 5-10 min wall.
 - **tpu-diagnoser droid** (Task tool): regex-classifies last K log
-  lines into a known root cause + recommended patches. Call only on
-  stall/crash verdicts.
+  lines into a known root cause + recommended patches. In optimization
+  mode, also classify regressions such as late recompile, input-bound
+  behavior, warmup drift, throughput regression, and loss regression.
+  Call only on stall/crash/regression verdicts.
 - **tpu-redeploy skill** (`/tpu-redeploy`): the encoded redeploy
   procedure (rsync + tmux restart). Call after every PATCH.
 - **AskUser**: the 4-option check-in dialog. Mandatory at the cadence.
+- **update-plan/update-progress**: keep phase state and candidate run
+  summaries in the correct memory files per `CONTROL_PLANE.md`.
 
 ## Mandatory: announce the wandb URL on every new run
 
@@ -117,6 +150,9 @@ You MUST escalate (regardless of the proposed tier) on:
 4. User selects Abort+Diag or Pause
 5. Token budget warning from main session
 6. wandb `state=crashed` AND no actionable diagnosis from diagnoser
+7. Optimization candidate hits NaN/OOM/late-recompile/warmup-drift/loss
+   regression or exceeds the HBM ceiling from
+   `TPU_OPTIMIZATION_SPEC.md`
 
 ## State persistence
 
@@ -144,3 +180,14 @@ This makes check-ins idempotent across orchestrator turns.
 - [ ] Past the historical step-258 OOM threshold without RESOURCE_EXHAUSTED
 - [ ] Final canonical save writes to GCS at end of run
 - [ ] PROGRESS.md entry written via `/update-progress`
+
+Optimization-mode Definition of Done:
+
+- [ ] Candidate has a row in the optimization experiment matrix or a
+  documented one-off rationale
+- [ ] Candidate has W&B/log metrics for p50 step time, examples/sec,
+  HBM peak, and compile delta
+- [ ] Candidate passes its 20/300/1000/5000-step gate without NaN, OOM,
+  late recompile, or loss regression
+- [ ] Promotion/rejection is recorded in `PROGRESS.md`
+- [ ] Durable promotion or gotcha is recorded in `memories.md`

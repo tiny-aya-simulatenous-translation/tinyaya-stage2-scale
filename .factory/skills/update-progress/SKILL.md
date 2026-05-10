@@ -8,6 +8,12 @@ description: Append a structured entry to .factory/PROGRESS.md with timestamp, b
 Programmatic interface to the running log. Used by hooks and custom
 droids; humans should prefer `/progress` or `#progress` triggers.
 
+In the unified TPU control plane, `PROGRESS.md` owns chronological
+events: candidate starts, pass/fail results, rollbacks, verification,
+and run summaries. Do not store full operating procedures here; those
+belong in `.factory/orchestration/`. Durable decisions graduate to
+`memories.md`.
+
 ## Inputs
 
 - `status`: one of `info | done | fail | block` (required)
