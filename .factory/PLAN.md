@@ -30,6 +30,9 @@ preserving stability, checkpoint safety, and evaluation quality.
   `5.9509s`, p90 `5.9741s`, p99 `6.2421s`; `log25` finished with p50
   `5.9213s`, p90 `6.0600s`, p99 `40.9924s`. `log10` is selected
   for the 1000-step validation gate.
+- **Validation status:** `opt-1-log10-1k` started but was interrupted by
+  service-initiated spot TPU preemption/maintenance before completing
+  1000 steps; partial metrics stayed healthy.
 
 ## Definition of Done
 
