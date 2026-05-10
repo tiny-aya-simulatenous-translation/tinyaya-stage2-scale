@@ -25,9 +25,10 @@ preserving stability, checkpoint safety, and evaluation quality.
 - **Control-plane update:** `.factory/orchestration/CONTROL_PLANE.md`
   and `.factory/orchestration/TPU_OPTIMIZATION_SPEC.md` are the new
   operational sources for optimization work.
-- **Phase 1 result:** `opt-1-log10` completed 300/300 steps without
-  NaN/OOM/traceback; W&B run `naswac6g` finished with p50 `5.9509s`,
-  p90 `5.9741s`, p99 `6.2421s`, and examples/sec `43.08`.
+- **Phase 1 result:** `opt-1-log10` and `opt-1-log25` both completed
+  300/300 steps without NaN/OOM/traceback. `log10` finished with p50
+  `5.9509s`, p90 `5.9741s`, p99 `6.2421s`; `log25` finished with p50
+  `5.9213s`, p90 `6.0600s`, p99 `40.9924s`.
 
 ## Definition of Done
 
@@ -63,7 +64,7 @@ preserving stability, checkpoint safety, and evaluation quality.
 ### Phase 1 — Low-risk sync/logging optimization
 
 - [x] Test `log_every=10` against baseline.
-- [ ] If stable, test `log_every=25`.
+- [x] If stable, test `log_every=25`.
 - [ ] Promote the fastest logging cadence that keeps monitoring useful.
 
 ### Phase 2 — Compile warmup before visible step 1

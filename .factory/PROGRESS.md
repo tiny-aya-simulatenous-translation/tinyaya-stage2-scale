@@ -26,6 +26,50 @@ moved to `.factory/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-05-10T08:46:51Z | feat/tpu-support@ee9295d | done | verify
+Repository verification passed after opt-1-log25 result updates.
+
+.factory/VERIFY.md: all 20 fenced bash blocks passed; TPU probes skipped on workstation because PJRT_DEVICE is unset.
+
+
+## 2026-05-10T08:46:08Z | feat/tpu-support@ee9295d | done | exec
+Phase 1 opt-1-log25 completed 300-step TPU gate.
+
+candidate: opt-1-log25
+base: iter24h and opt-1-log10
+config diff: logging.log_every 10->25 from opt-1-log10; max_steps=300; perf.enabled=true
+run ID: abatvspt (https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/abatvspt)
+run length: 300 steps; exit status 0; canonical final save completed at gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-log25/step_000300_final
+metrics: p50=5.9213s, p90=6.0600s, p99=40.9924s, examples/sec=43.06, frame-tokens/sec=17224.36, steady_window_steps=11
+baseline delta: p50 12.25% faster, p90 13.18% faster, examples/sec 13.50% higher
+log10 delta: p50 0.50% faster, p90 1.44% slower, examples/sec 0.04% lower; p99 regressed due sparse log-window outlier
+loss: final train/loss=6.7730 (text=10.1658, audio=5.7564); loss decreased through step 300
+safety: no NaN/OOM/RESOURCE_EXHAUSTED/traceback observed; compile_cause_count=0 in poller
+verdict: pass safety gate but do not promote over log10; log10 has nearly identical throughput with better p90/p99 and denser monitoring.
+
+
+## 2026-05-10T08:29:12Z | feat/tpu-support@ee9295d | info | exec
+Phase 1 opt-1-log25 T+15 check-in continued.
+
+W&B: https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/abatvspt
+State running; PID alive; no first step/loss yet; no NaN/OOM/traceback; user chose Continue to T+30.
+
+
+## 2026-05-10T06:11:08Z | feat/tpu-support@ee9295d | info | exec
+Phase 1 opt-1-log25 W&B run detected.
+
+W&B: https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/abatvspt
+Run name: v6e-spot-stage2-opt1-log25; state running; no first step yet.
+
+
+## 2026-05-10T06:10:27Z | feat/tpu-support@ee9295d | done | exec
+Started Phase 1 live TPU run opt-1-log25 on v6e-8.
+
+Config: configs/stage2_tpu_v6e_spot_opt_log25.yaml; max_steps=300; log_every=25; perf.enabled=true; effective_batch=256.
+Redeployed to existing ACTIVE QR tinyaya-stage2-spot-v6e8-eu-qr; no QR recreate.
+Initial TPU process wrapper/child PIDs observed: 139726, 139918.
+
+
 ## 2026-05-10T06:06:51Z | feat/tpu-support@0e7f6dc | done | verify
 opt-1-log25 config added and repository verification passed.
 
