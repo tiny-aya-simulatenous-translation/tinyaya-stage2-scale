@@ -26,6 +26,191 @@ moved to `.factory/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-05-12T00:37:18Z | feat/tpu-support@59e46fe | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.factory/memories.md`
+
+
+## 2026-05-12T00:37:04Z | feat/tpu-support@59e46fe | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.factory/PLAN.md`
+
+
+## 2026-05-12T00:36:49Z | feat/tpu-support@59e46fe | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.factory/PLAN.md`
+
+
+## 2026-05-12T00:36:44Z | feat/tpu-support@59e46fe | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.factory/PLAN.md`
+
+
+## 2026-05-12T00:36:37Z | feat/tpu-support@59e46fe | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.factory/PLAN.md`
+
+## 2026-05-12T00:36:28Z | unknown@unknown | fail | exec
+opt-3-b16g2 NaN at step 130 (300-step gate failed)
+
+candidate: opt-3-b16g2
+base: iter24h (b=8/g=4)
+config diff: batch_size 8->16, grad_accum 4->2
+20-step smoke: pass (4.21s/step, 60.8 examples/sec, no NaN)
+300-step gate: FAIL - NaN at step 130, last good step 120 loss=7.4317
+diagnosis: v6e bf16 reduce-scatter bug (pytorch/xla #8591/#8778)
+tier: T4 (stability gate failure, no retry)
+conclusion: b=16/g=2 is unviable under FSDPv2+bf16 on v6e-8;
+b=32/g=1 would be even worse. Phase 3 batch sweep closed.
+W&B smoke: https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/8oqo324y
+W&B 300-step: https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/jvc8nxom
+
+
+## 2026-05-12T00:35:57Z | feat/tpu-support@59e46fe | info | session
+SessionEnd (other): 23 item(s) carried forward
+
+Next steps:
+- Best promoted optimization config completes a 5000-step production
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Re-run baseline `batch_size=8`, `grad_accum=4` with instrumentation.
+- Test `batch_size=16`, `grad_accum=2` through 20-step and 300-step gates.
+- Test `batch_size=32`, `grad_accum=1` only if `b=16/g=2` passes with
+- Promote the lowest safe p50 step time.
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+
+
+## 2026-05-12T00:35:57Z | feat/tpu-support@59e46fe | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-12T00:34:15Z | feat/tpu-support@59e46fe | info | session
+SessionEnd (other): 23 item(s) carried forward
+
+Next steps:
+- Best promoted optimization config completes a 5000-step production
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Re-run baseline `batch_size=8`, `grad_accum=4` with instrumentation.
+- Test `batch_size=16`, `grad_accum=2` through 20-step and 300-step gates.
+- Test `batch_size=32`, `grad_accum=1` only if `b=16/g=2` passes with
+- Promote the lowest safe p50 step time.
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+
+
+## 2026-05-12T00:34:15Z | feat/tpu-support@59e46fe | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-11T20:41:30Z | feat/tpu-support@59e46fe | info | session
+SessionEnd (other): 23 item(s) carried forward
+
+Next steps:
+- Best promoted optimization config completes a 5000-step production
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Re-run baseline `batch_size=8`, `grad_accum=4` with instrumentation.
+- Test `batch_size=16`, `grad_accum=2` through 20-step and 300-step gates.
+- Test `batch_size=32`, `grad_accum=1` only if `b=16/g=2` passes with
+- Promote the lowest safe p50 step time.
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+
+
+## 2026-05-11T20:41:30Z | feat/tpu-support@59e46fe | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-11T20:20:43Z | feat/tpu-support@59e46fe | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot_opt_b16g2.yaml`
+
+
+## 2026-05-11T20:16:16Z | feat/tpu-support@59e46fe | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot_opt_b16g2.yaml`
+
+
+## 2026-05-11T20:16:12Z | feat/tpu-support@59e46fe | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot_opt_b16g2.yaml`
+
+
+## 2026-05-11T20:16:07Z | feat/tpu-support@59e46fe | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot_opt_b16g2.yaml`
+
+
+## 2026-05-11T20:16:03Z | feat/tpu-support@59e46fe | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot_opt_b16g2.yaml`
+
+
+## 2026-05-11T20:14:16Z | feat/tpu-support@59e46fe | info | session
+SessionEnd (other): 23 item(s) carried forward
+
+Next steps:
+- Best promoted optimization config completes a 5000-step production
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Re-run baseline `batch_size=8`, `grad_accum=4` with instrumentation.
+- Test `batch_size=16`, `grad_accum=2` through 20-step and 300-step gates.
+- Test `batch_size=32`, `grad_accum=1` only if `b=16/g=2` passes with
+- Promote the lowest safe p50 step time.
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+
+
+## 2026-05-11T20:14:16Z | feat/tpu-support@59e46fe | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-11T20:00:34Z | feat/tpu-support@59e46fe | info | session
+SessionEnd (other): 23 item(s) carried forward
+
+Next steps:
+- Best promoted optimization config completes a 5000-step production
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Re-run baseline `batch_size=8`, `grad_accum=4` with instrumentation.
+- Test `batch_size=16`, `grad_accum=2` through 20-step and 300-step gates.
+- Test `batch_size=32`, `grad_accum=1` only if `b=16/g=2` passes with
+- Promote the lowest safe p50 step time.
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+
+
+## 2026-05-11T20:00:34Z | feat/tpu-support@59e46fe | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-11T19:20:36Z | feat/tpu-support@59e46fe | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot_opt_b16g2.yaml`
+
+
+## 2026-05-11T19:17:12Z | feat/tpu-support@59e46fe | info | session
+SessionEnd (other): 23 item(s) carried forward
+
+Next steps:
+- Best promoted optimization config completes a 5000-step production
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Re-run baseline `batch_size=8`, `grad_accum=4` with instrumentation.
+- Test `batch_size=16`, `grad_accum=2` through 20-step and 300-step gates.
+- Test `batch_size=32`, `grad_accum=1` only if `b=16/g=2` passes with
+- Promote the lowest safe p50 step time.
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+
+
+## 2026-05-11T19:17:12Z | feat/tpu-support@59e46fe | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-11T18:59:33Z | feat/tpu-support@59e46fe | info | session
+SessionEnd (other): 23 item(s) carried forward
+
+Next steps:
+- Best promoted optimization config completes a 5000-step production
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Re-run baseline `batch_size=8`, `grad_accum=4` with instrumentation.
+- Test `batch_size=16`, `grad_accum=2` through 20-step and 300-step gates.
+- Test `batch_size=32`, `grad_accum=1` only if `b=16/g=2` passes with
+- Promote the lowest safe p50 step time.
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+
+
+## 2026-05-11T12:47:20Z | feat/tpu-support@59e46fe | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
 ## 2026-05-11T12:12:19Z | feat/tpu-support@e7b221c | done | edit
 edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.factory/memories.md`
 

@@ -54,6 +54,12 @@ preserving stability, checkpoint safety, and evaluation quality.
   loss `6.655`. Compile warmup is throughput-neutral versus hot1k
   baseline (p50 0.8% faster, p99 2.6% tighter, examples/sec 1.2%
   slower). The tighter p99 confirms fewer late-recompile outliers.
+- **Phase 3 result:** `opt-3-b16g2` 20-step smoke passed (4.21s/step,
+  60.8 examples/sec) but 300-step gate failed with NaN at step 130.
+  Diagnosis: v6e bf16 reduce-scatter bug (pytorch/xla #8591/#8778)
+  triggered by 2x larger per-microbatch gradient tensors at b=16.
+  b=32/g=1 is also unsafe. Phase 3 batch sweep closed; b=8/g=4
+  remains the only viable batch topology under FSDPv2+bf16 on v6e-8.
 
 ## Definition of Done
 
@@ -101,11 +107,16 @@ preserving stability, checkpoint safety, and evaluation quality.
 
 ### Phase 3 — Batch/grad-accum sweep at fixed effective batch 256
 
-- [ ] Re-run baseline `batch_size=8`, `grad_accum=4` with instrumentation.
-- [ ] Test `batch_size=16`, `grad_accum=2` through 20-step and 300-step gates.
-- [ ] Test `batch_size=32`, `grad_accum=1` only if `b=16/g=2` passes with
+- [x] Re-run baseline `batch_size=8`, `grad_accum=4` with instrumentation.
+- [x] Test `batch_size=16`, `grad_accum=2` through 20-step and 300-step gates.
+- [x] Test `batch_size=32`, `grad_accum=1` only if `b=16/g=2` passes with
   enough HBM headroom.
-- [ ] Promote the lowest safe p50 step time.
+- [x] Promote the lowest safe p50 step time.
+
+**Result: b=16/g=2 NaN'd at step 130 (v6e bf16 reduce-scatter bug
+pytorch/xla #8591/#8778). b=32/g=1 is also unsafe. Phase 3 closed;
+b=8/g=4 remains the only viable batch topology under FSDPv2+bf16
+on v6e-8.**
 
 ### Phase 4 — Activation and depth-chunk sweep
 

@@ -54,6 +54,22 @@ assertion (delta 0.08 over 2283.73 in bf16). The sampled sentinel
 copies small parameter slices before/after warmup and compares them
 element-wise, avoiding the unstable global sum reduction.
 
+### 2026-05-11: batch_size=16/grad_accum=2 rejected due to bf16 reduce-scatter NaN
+
+**Decision:** `batch_size=16` and `grad_accum=2` (effective batch 256)
+is rejected for the v6e-8 FSDPv2+bf16 path. The 20-step smoke passed
+with excellent throughput (4.21s/step, 60.8 examples/sec) but the
+300-step gate NaN'd at step 130 due to the known v6e bf16
+reduce-scatter numerics bug (pytorch/xla #8591/#8778). Larger
+per-microbatch gradient tensors (2x vs b=8) accumulate enough bf16
+rounding error to diverge. `batch_size=32`/`grad_accum=1` would be
+even worse and should not be tested.
+
+**Gotcha:** FSDPv2 does not support `fp32_reduce_scatter` (only
+FSDPv1 does; pytorch/xla #3588/#8056 remain open). The only proven
+stable batch topology on this hardware/precision combo is
+`batch_size=8`, `grad_accum=4`. Phase 3 batch sweep is closed.
+
 **Follow-up:** Before changing more knobs, ask the user whether to run a
 5000-step production pass for `opt-1-log10-hot1k` or continue to Phase 2
 compile-warmup experiments.
