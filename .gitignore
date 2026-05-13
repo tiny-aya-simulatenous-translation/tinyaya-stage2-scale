@@ -1,0 +1,60 @@
+# --- secrets / local config ---
+.env
+.env.local
+*.env.local
+
+# --- python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+*.egg
+build/
+dist/
+pip-wheel-metadata/
+
+# --- virtualenvs (uv, venv, conda) ---
+.venv/
+venv/
+env/
+.python-version
+
+# --- editors / OS ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- jupyter ---
+.ipynb_checkpoints/
+*-checkpoint.ipynb
+
+# --- training artifacts (kept on GCS / W&B, not in git) ---
+checkpoints/
+_artifacts/
+wandb/
+runs/
+*.log
+*.tmp
+
+# --- HF / cache ---
+.cache/
+.huggingface/
+
+# --- audio scratch ---
+*.wav.tmp
+
+# --- factory memory system ---
+.factory/settings.local.json
+.factory/archive/.tmp-*
+.factory/hooks/__pycache__/

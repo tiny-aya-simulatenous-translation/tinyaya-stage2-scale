@@ -1,13 +1,43 @@
 """Train TinyAyaMoshiComposite with hierarchical codebook generation.
 
-Dual-mode:
-  --dataset_mode memory    (50-pair debug, original TranslationDataset)
-  --dataset_mode streaming (scale run, StreamingTranslationDataset)
+WHY THIS EXISTS
+---------------
+This is the canonical Stage 2 training entry point. It runs in three
+mutually exclusive modes:
 
-Reads a YAML config (configs/stage2_scale.yaml) as the source of truth; every
-field stays overridable via CLI flags (additive argparse).
+* **GPU single-process** -- the script just runs (no ``torchrun``).
+* **GPU multi-process** -- launch with ``torchrun`` for DDP. The
+  ``backend.init_distributed()`` call detects this via env vars.
+* **TPU SPMD** -- one Python process per host (each host drives all
+  4 chips). The ``backend.init_distributed()`` call sets up the XLA
+  ``Mesh`` and the SPMD partitioner.
 
-Supports single-GPU and multi-GPU (DDP via torchrun) training.
+GPU vs TPU at a glance
+----------------------
+* On GPU we move data to ``device`` and call ``model(...)``. PyTorch
+  schedules the kernels and CUDA streams hide latency.
+* On TPU we *also* call ``model(...)`` -- but the first time XLA
+  *traces* the whole forward+backward, *compiles* it to TPU machine
+  code, and only then *executes* it. The compiled binary is reused
+  for every subsequent step, so the first step is slow (minutes) and
+  the rest are fast.
+* On TPU we additionally call ``backend.mark_sharding(...)`` on the
+  inputs so the SPMD partitioner knows the batch dimension is
+  sharded across chips. GPU analogue: ``DistributedSampler`` (but
+  here SPMD does it without per-rank Python state).
+
+Config precedence
+-----------------
+YAML (``--config``) provides the defaults; CLI flags override; the
+``DEFAULTS`` dict at the top of the file is the ultimate fallback.
+Two new keys plumb the scan_layers / grad-checkpoint feature flags:
+
+* ``train.use_scan_layers`` (bool) -- swap layer stacks for the
+  ``scan_utils`` proxy. See PLAN.md Phase 1.
+* ``train.xla_grad_checkpoint`` (bool) -- per-layer
+  ``torch.utils.checkpoint``. See PLAN.md Phase 2.
+* ``train.compile_warmup_steps`` (int) -- run zero-LR TPU macro-steps
+  before visible step 1 so the counted loss curve starts after compile.
 """
 
 import argparse
@@ -16,23 +46,194 @@ import json
 import os
 import sys
 import time
+from collections import deque
 from pathlib import Path
 
+# ruff: noqa: E402,I001
 import soundfile as sf
 import torch
 import yaml
 from torch.utils.data.distributed import DistributedSampler
 
+
+def _patch_attention_mask_for_bf16() -> None:
+    """Replace HF attention mask `torch.finfo(dtype).min` with safe -1e4.
+
+    pytorch/xla #4152: HF transformers builds attention masks using
+    `torch.finfo(fp32).min = -3.4e38`; when downcast to bf16 this becomes
+    `-inf`, then `(1 - mask) * -inf = NaN`. Replacing the constant with
+    -1e4 (well within bf16 representable range, still < softmax cutoff)
+    avoids the overflow without changing model semantics.
+
+    Idempotent. Must be called before any model loads.
+    """
+    try:
+        from transformers.modeling_attn_mask_utils import AttentionMaskConverter
+    except ImportError:
+        return
+
+    import transformers.modeling_attn_mask_utils as _mask_utils
+
+    original_to_4d = AttentionMaskConverter.to_4d
+    original_make_causal = AttentionMaskConverter._make_causal_mask
+
+    SAFE_MIN = -1e4
+
+    def patched_to_4d(self, attention_mask_2d, query_length, dtype, key_value_length=None):
+        out = original_to_4d(self, attention_mask_2d, query_length, dtype, key_value_length)
+        return out.clamp(min=SAFE_MIN)
+
+    @staticmethod
+    def patched_make_causal(
+        input_ids_shape, dtype, device, past_key_values_length=0, sliding_window=None
+    ):
+        out = original_make_causal(
+            input_ids_shape,
+            dtype,
+            device,
+            past_key_values_length=past_key_values_length,
+            sliding_window=sliding_window,
+        )
+        return out.clamp(min=SAFE_MIN)
+
+    @staticmethod
+    def patched_ignore_causal_mask_sdpa(
+        attention_mask,
+        inputs_embeds,
+        past_key_values_length,
+        sliding_window=None,
+        is_training=False,
+    ):
+        # TPU note: HF's default implementation calls
+        # `torch.all(attention_mask == 1)` and elides the 4D SDPA mask
+        # for all-full batches. On XLA that value-dependent branch can
+        # split the graph mid-run; keep one mask topology for every
+        # batch instead.
+        return False
+
+    def patched_prepare_4d_attention_mask_for_sdpa(mask, dtype, tgt_len=None):
+        return AttentionMaskConverter._expand_mask(mask=mask, dtype=dtype, tgt_len=tgt_len).clamp(
+            min=SAFE_MIN
+        )
+
+    AttentionMaskConverter.to_4d = patched_to_4d
+    AttentionMaskConverter._make_causal_mask = patched_make_causal
+    if hasattr(AttentionMaskConverter, "_ignore_causal_mask_sdpa"):
+        AttentionMaskConverter._ignore_causal_mask_sdpa = patched_ignore_causal_mask_sdpa
+    if hasattr(_mask_utils, "_prepare_4d_attention_mask_for_sdpa"):
+        _mask_utils._prepare_4d_attention_mask_for_sdpa = patched_prepare_4d_attention_mask_for_sdpa
+    print(
+        "[bf16-mask-patch] AttentionMaskConverter patched "
+        "(clamp >= -1e4; SDPA mask elision disabled)",
+        flush=True,
+    )
+
+
+_patch_attention_mask_for_bf16()
+
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.backend import get_backend
 from src.data.collator import InterleavedCollator
 from src.data.dataset import StreamingTranslationDataset, TranslationDataset
 from src.model.backbone import TinyAyaBackbone
 from src.model.composite import TinyAyaMoshiComposite
 from src.model.lora_setup import apply_lora
-from src.training.checkpointing import load_checkpoint, prune_checkpoints, push_checkpoint_to_hub, save_checkpoint
+from src.training.checkpointing import (
+    prune_checkpoints,
+    push_checkpoint_to_hub,
+    save_checkpoint,
+)
 from src.training.scheduler import WarmupCosineScheduler
 from src.training.translation_loss import compute_hierarchical_translation_loss
+
+
+_FSDPV2_BARRIER_TARGET_CLASSES: tuple[str, ...] = (
+    "Cohere2DecoderLayer",
+    "CohereDecoderLayer",
+    "MoshiDecoderLayer",
+)
+
+
+def _apply_fsdpv2_backward_barriers(model: torch.nn.Module) -> int:
+    """Register per-layer XLA optimization barriers on an SPMD model.
+
+    Walks every submodule of ``model`` and, for each transformer
+    decoder layer matched by class name, registers a backward hook
+    that calls ``xm.optimization_barrier_`` over the layer's grads
+    plus the upstream ``grad_input``. This forces XLA to materialise
+    gradients and free the all-gather output of that layer's
+    sharded full params before the previous layer's backward begins.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        The composite, post-``backend.wrap_model``. ``SpmdFullyShardedDataParallel``
+        does not wrap inner layers in nested FSDPv2 instances --
+        instead it walks the auto_wrap_policy match set and applies
+        ``xs.mark_sharding`` to each matched layer's parameters.
+        Inner layers therefore remain ordinary
+        ``CohereDecoderLayer`` / ``MoshiDecoderLayer`` instances,
+        which is what we hook by class name here.
+
+    Returns
+    -------
+    int
+        Number of layers that received a barrier hook. Zero on
+        non-TPU paths (the imports fail) and zero when the composite
+        is missing both target layer classes.
+
+    Notes
+    -----
+    TPU note: Without this hook, XLA's ``cache_all_gather=True``
+    (defaulted in the SPMD partitioner; see openxla/xla #20508)
+    retains the all-gather output of every sharded layer's full
+    params from forward through backward. Across 36 sharded
+    ``CohereDecoderLayer`` instances those retained ring buffers
+    accumulate to ~28 GiB on v6e-8 (32 GiB / chip), which then
+    deterministically OOMs around step 258 the moment XLA's CSE
+    stops eliding equivalent all-gather ops and is forced to
+    materialise the full ring of 20+ buffers simultaneously.
+
+    The hook implements step 5 of the FSDPv2 SPMD recipe from
+    pytorch/xla #6379 (the HF Llama 2 / DeepSeek SPMD reference
+    pattern): a backward hook that calls
+    ``xm.optimization_barrier_(grads + grad_input)`` per layer,
+    forcing XLA to insert a fence that prevents the all-gather
+    cache from accumulating across the forward-to-backward
+    boundary.
+
+    GPU analogue: none -- on GPU, FSDP's pre/post-backward hooks
+    already free full params at exit; XLA SPMD requires this manual
+    fence because the partitioner is far more aggressive about
+    fusion + caching.
+
+    References
+    ----------
+    openxla/xla #20508 -- ``cache_all_gather`` default + no flag.
+    pytorch/xla #6379  -- FSDPv2 RFC step 5 (per-layer barrier).
+    pytorch/xla #8423  -- SDPA 2.5x SPMD memory regression context.
+    """
+    try:
+        from torch_xla.distributed.spmd.xla_sharding import (
+            apply_backward_optimization_barrier,
+        )
+    except ImportError as exc:
+        print(f"[fsdpv2] WARN: backward barrier unavailable: {exc!r}", flush=True)
+        return 0
+
+    barrier_count = 0
+    for sub in model.modules():
+        if type(sub).__name__ in _FSDPV2_BARRIER_TARGET_CLASSES:
+            apply_backward_optimization_barrier(sub)
+            barrier_count += 1
+    print(
+        f"[fsdpv2] applied backward optimization barrier to {barrier_count} layers "
+        f"(targets={_FSDPV2_BARRIER_TARGET_CLASSES})",
+        flush=True,
+    )
+    return barrier_count
 
 
 # ---------------------------------------------------------------------------
@@ -40,24 +241,93 @@ from src.training.translation_loss import compute_hierarchical_translation_loss
 # ---------------------------------------------------------------------------
 
 DEFAULTS = {
-    "data": {"train_split": None, "val_split": None, "encoded_dir": None,
-             "max_frames": 300, "audio_frame_rate": 12.5,
-             "num_workers": 4, "pin_memory": True},
-    "train": {"num_codebooks": 8, "batch_size": 1, "grad_accum": 1,
-              "max_steps": 3000, "warmup_steps": 200, "min_lr_ratio": 0.1,
-              "depth_chunk_size": 16, "precision": "bfloat16",
-              "max_grad_norm": 1.0, "weight_decay": 0.01,
-              "adam_beta1": 0.9, "adam_beta2": 0.999, "adam_eps": 1e-8},
+    "backend": "auto",
+    "data": {
+        "train_split": None,
+        "val_split": None,
+        "encoded_dir": None,
+        "max_frames": 300,
+        "audio_frame_rate": 12.5,
+        "num_workers": 4,
+        "pin_memory": True,
+    },
+    "train": {
+        "num_codebooks": 8,
+        "batch_size": 1,
+        "grad_accum": 1,
+        "max_steps": 3000,
+        "warmup_steps": 200,
+        "min_lr_ratio": 0.1,
+        "depth_chunk_size": 16,
+        "precision": "bfloat16",
+        "max_grad_norm": 1.0,
+        "weight_decay": 0.01,
+        "adam_beta1": 0.9,
+        "adam_beta2": 0.999,
+        "adam_eps": 1e-8,
+        # TPU-only flags. Both safe to leave True on GPU: the
+        # scan proxy falls back to a plain loop, and the grad
+        # checkpoint shim falls back to a direct call.
+        "use_scan_layers": False,
+        "xla_grad_checkpoint": False,
+        "compile_warmup_steps": 0,
+    },
     "loss": {"text_weight": 0.1, "audio_weight": 1.0},
-    "optim": {"lr_lora": 1.5e-4, "lr_full_ft": 5e-5, "lr_projection": 5e-4,
-              "lr_depth": 2.5e-4, "lr_audio_embed": 5e-4, "lr_text_embed": 5e-4},
-    "logging": {"log_every": 20, "save_every": 1000, "audio_every": 1000,
-                "val_every": 1000, "save_dir": "checkpoints/stage2_scale",
-                "wandb_project": "tinyaya-s2s",
-                "wandb_run_name": "stage2_scale",
-                "use_wandb": False,
-                "push_to_hub": False, "hub_repo_id": None},
+    "optim": {
+        "lr_lora": 1.5e-4,
+        "lr_full_ft": 5e-5,
+        "lr_projection": 5e-4,
+        "lr_depth": 2.5e-4,
+        "lr_audio_embed": 5e-4,
+        "lr_text_embed": 5e-4,
+    },
+    "logging": {
+        "log_every": 20,
+        "save_every": 1000,
+        "audio_every": 1000,
+        "val_every": 1000,
+        "save_dir": "checkpoints/stage2_scale",
+        "wandb_project": "tinyaya-s2s",
+        "wandb_run_name": "stage2_scale",
+        "use_wandb": False,
+        "push_to_hub": False,
+        "hub_repo_id": None,
+    },
+    "perf": {
+        "enabled": False,
+        "warmup_skip_steps": 50,
+        "xprof_trace_labels": False,
+    },
 }
+
+
+def _percentile(values: list[float], q: float) -> float | None:
+    """Return a percentile from an in-memory scalar window.
+
+    Args:
+        values: Finite scalar values already materialized on host.
+        q: Percentile as a 0-1 fraction.
+
+    Returns:
+        The interpolated percentile, or ``None`` when ``values`` is
+        empty.
+
+    Notes:
+        TPU note: callers append only host-side wall-clock values that
+        were already computed at a logging boundary. This helper never
+        touches XLA tensors, so enabling perf summaries does not add a
+        hidden device sync.
+    """
+    if not values:
+        return None
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return ordered[0]
+    pos = (len(ordered) - 1) * q
+    lo = int(pos)
+    hi = min(lo + 1, len(ordered) - 1)
+    frac = pos - lo
+    return ordered[lo] * (1.0 - frac) + ordered[hi] * frac
 
 
 def _deep_update(d, u):
@@ -77,6 +347,9 @@ def load_config(path: str | None, overrides: dict) -> dict:
     # apply CLI overrides
     for k, v in overrides.items():
         if v is None:
+            continue
+        if k in cfg and not isinstance(cfg[k], dict):
+            cfg[k] = v
             continue
         for section in cfg:
             if k in cfg[section]:
@@ -101,7 +374,7 @@ def freeze_depth_internals(model):
         else:
             param.requires_grad = False
             frozen += param.numel()
-    print(f"Depth decoder: frozen {frozen/1e6:.0f}M, trainable I/O {kept/1e6:.0f}M")
+    print(f"Depth decoder: frozen {frozen / 1e6:.0f}M, trainable I/O {kept / 1e6:.0f}M")
 
 
 def get_param_groups(model, optim_cfg):
@@ -131,7 +404,7 @@ def get_param_groups(model, optim_cfg):
     print("\n=== Parameter Groups ===")
     for g in result:
         n = sum(p.numel() for p in g["params"])
-        print(f"  {g['name']}: {len(g['params'])} tensors, {n/1e6:.1f}M, lr={g['lr']}")
+        print(f"  {g['name']}: {len(g['params'])} tensors, {n / 1e6:.1f}M, lr={g['lr']}")
     return result
 
 
@@ -141,8 +414,16 @@ def get_param_groups(model, optim_cfg):
 
 
 @torch.no_grad()
-def generate_audio_sample(model, dataset, mimi_encoder, device, num_codebooks,
-                          sample_idx=0, max_target_frames=80):
+def generate_audio_sample(
+    model,
+    dataset,
+    mimi_encoder,
+    device,
+    num_codebooks,
+    sample_idx=0,
+    max_target_frames=80,
+    backend=None,
+):
     model.eval()
     sample = dataset[sample_idx]
     src_codes_all = sample["audio_codes"]
@@ -151,15 +432,22 @@ def generate_audio_sample(model, dataset, mimi_encoder, device, num_codebooks,
 
     src_cb0 = src_codes_all[0, :src_len].unsqueeze(0).to(device)
     generated_cb0 = src_cb0.clone()
-    text_ids = torch.full((1, src_len), TinyAyaBackbone.ZERO_PADDING,
-                          dtype=torch.long, device=device)
+    text_ids = torch.full(
+        (1, src_len), TinyAyaBackbone.ZERO_PADDING, dtype=torch.long, device=device
+    )
 
     all_generated = []
     for _ in range(max_target_frames):
         mask = torch.ones(1, generated_cb0.shape[1], dtype=torch.long, device=device)
-        with torch.amp.autocast("cuda", dtype=torch.bfloat16):
-            backbone_out = model.backbone(text_ids=text_ids, audio_codes=generated_cb0,
-                                          attention_mask=mask)
+        autocast = (
+            backend.autocast_context(dtype=torch.bfloat16)
+            if backend
+            else torch.amp.autocast("cuda", dtype=torch.bfloat16)
+        )
+        with autocast:
+            backbone_out = model.backbone(
+                text_ids=text_ids, audio_codes=generated_cb0, attention_mask=mask
+            )
             projected = model.projection(backbone_out["hidden_states"])
             ctx = projected[:, -1:, :]
             ctx_expanded = ctx.expand(1, num_codebooks, -1).contiguous()
@@ -168,8 +456,10 @@ def generate_audio_sample(model, dataset, mimi_encoder, device, num_codebooks,
             frame = []
             for cb_idx in range(num_codebooks):
                 depth_out = model.depth_decoder(
-                    input_ids=depth_input, last_hidden_state=ctx_expanded,
-                    use_cache=False, return_dict=True,
+                    input_ids=depth_input,
+                    last_hidden_state=ctx_expanded,
+                    use_cache=False,
+                    return_dict=True,
                 )
                 tok = depth_out.logits[0, cb_idx, :].argmax(dim=-1)
                 frame.append(tok.cpu())
@@ -183,11 +473,11 @@ def generate_audio_sample(model, dataset, mimi_encoder, device, num_codebooks,
         text_ids = torch.cat([text_ids, text_pad], dim=1)
 
     gen_codes = torch.stack(all_generated, dim=1)  # [CB, T]
-    gt_cb0 = src_codes_all[0, src_len:src_len + gen_codes.shape[1]]
+    gt_cb0 = src_codes_all[0, src_len : src_len + gen_codes.shape[1]]
     cb0_acc = (gen_codes[0] == gt_cb0).float().mean().item() if len(gt_cb0) > 0 else 0.0
 
     src_full = src_codes_all[:, :src_len]
-    tgt_full = src_codes_all[:, src_len:src_len + tgt_len]
+    tgt_full = src_codes_all[:, src_len : src_len + tgt_len]
     model.train()
     return {
         "source_wav": mimi_encoder.decode(src_full).numpy(),
@@ -203,8 +493,17 @@ def generate_audio_sample(model, dataset, mimi_encoder, device, num_codebooks,
 
 
 @torch.no_grad()
-def run_validation(model, val_loader, device, num_codebooks, depth_chunk_size,
-                   loss_cfg, *, is_ddp=False) -> dict:
+def run_validation(
+    model,
+    val_loader,
+    device,
+    num_codebooks,
+    depth_chunk_size,
+    loss_cfg,
+    *,
+    is_ddp=False,
+    backend=None,
+) -> dict:
     model.eval()
     sums = {"loss": 0.0, "text": 0.0, "audio": 0.0}
     per_cb_sum = torch.zeros(num_codebooks, device=device)
@@ -218,14 +517,28 @@ def run_validation(model, val_loader, device, num_codebooks, depth_chunk_size,
         mask = batch["attention_mask"].to(device)
         loss_mask = batch["loss_mask"].to(device)
 
-        with torch.amp.autocast("cuda", dtype=torch.bfloat16):
-            output = model(text_ids=text_ids, audio_codes=cb0, attention_mask=mask,
-                           full_audio_codes=all_codes[:, :num_codebooks, :],
-                           depth_chunk_size=depth_chunk_size)
+        autocast = (
+            backend.autocast_context(dtype=torch.bfloat16)
+            if backend
+            else torch.amp.autocast("cuda", dtype=torch.bfloat16)
+        )
+        with autocast:
+            output = model(
+                text_ids=text_ids,
+                audio_codes=cb0,
+                attention_mask=mask,
+                full_audio_codes=all_codes[:, :num_codebooks, :],
+                depth_chunk_size=depth_chunk_size,
+            )
+            text_logits, audio_logits, _ = output
             audio_targets = all_codes[:, :num_codebooks, :]
             losses = compute_hierarchical_translation_loss(
-                output["text_logits"], output["audio_logits"],
-                text_ids, audio_targets, mask, loss_mask,
+                text_logits,
+                audio_logits,
+                text_ids,
+                audio_targets,
+                mask,
+                loss_mask,
                 text_weight=loss_cfg["text_weight"],
                 audio_weight=loss_cfg["audio_weight"],
             )
@@ -235,7 +548,7 @@ def run_validation(model, val_loader, device, num_codebooks, depth_chunk_size,
         per_cb_sum += losses["per_codebook_loss"]
 
         # cb0 teacher-forced acc on target positions (shifted next-token)
-        pred = output["audio_logits"][:, 0, :-1].argmax(dim=-1)  # [B, T-1]
+        pred = audio_logits[:, 0, :-1].argmax(dim=-1)  # [B, T-1]
         target = all_codes[:, 0, 1:]
         m = loss_mask[:, 1:].bool() & mask[:, 1:].bool()
         if m.any():
@@ -244,15 +557,17 @@ def run_validation(model, val_loader, device, num_codebooks, depth_chunk_size,
         n += 1
 
     # all-reduce across ranks so every rank sees identical metrics
-    if is_ddp:
+    if backend and backend.world_size() > 1:
         for k in sums:
             t = torch.tensor(sums[k], device=device)
-            torch.distributed.all_reduce(t, op=torch.distributed.ReduceOp.SUM)
+            t = backend.reduce_mean(t) * backend.world_size()  # reduce_mean then scale back to sum
             sums[k] = t.item()
-        torch.distributed.all_reduce(per_cb_sum, op=torch.distributed.ReduceOp.SUM)
-        t = torch.tensor([cb0_correct, cb0_total, n], device=device)
-        torch.distributed.all_reduce(t, op=torch.distributed.ReduceOp.SUM)
+        # For per_cb_sum and counts, use the same pattern
+        t = torch.tensor([cb0_correct, cb0_total, float(n)], device=device)
+        t = backend.reduce_mean(t) * backend.world_size()
         cb0_correct, cb0_total, n = t.tolist()
+        per_cb_sum_t = backend.reduce_mean(per_cb_sum) * backend.world_size()
+        per_cb_sum = per_cb_sum_t
 
     model.train()
     if n == 0:
@@ -292,6 +607,7 @@ def build_parser():
     p.add_argument("--depth_chunk_size", type=int, default=None)
     p.add_argument("--num_codebooks", type=int, default=None)
     p.add_argument("--warmup_steps", type=int, default=None)
+    p.add_argument("--compile_warmup_steps", type=int, default=None)
     p.add_argument("--num_workers", type=int, default=None)
 
     # logging
@@ -302,34 +618,62 @@ def build_parser():
     p.add_argument("--save_dir", type=str, default=None)
     p.add_argument("--wandb_project", type=str, default=None)
     p.add_argument("--wandb_run_name", type=str, default=None)
-    p.add_argument("--use_wandb", type=lambda s: s.lower() in ("1", "true", "yes"),
-                   default=None)
+    p.add_argument("--use_wandb", type=lambda s: s.lower() in ("1", "true", "yes"), default=None)
 
-    p.add_argument("--push_to_hub", type=lambda s: s.lower() in ("1", "true", "yes"),
-                   default=None)
+    p.add_argument("--push_to_hub", type=lambda s: s.lower() in ("1", "true", "yes"), default=None)
     p.add_argument("--hub_repo_id", type=str, default=None)
 
+    p.add_argument("--backend", type=str, default=None, choices=["auto", "gpu", "tpu"])
     p.add_argument("--resume", type=str, default=None, help="checkpoint dir to resume from")
     return p
 
 
 def main():
     args = build_parser().parse_args()
-    overrides = {k: v for k, v in vars(args).items()
-                 if k not in ("config", "dataset_mode", "data_dir", "resume")}
+    overrides = {
+        k: v
+        for k, v in vars(args).items()
+        if k not in ("config", "dataset_mode", "data_dir", "resume")
+    }
     cfg = load_config(args.config, overrides)
 
-    # ---- distributed init
-    local_rank = int(os.environ.get("LOCAL_RANK", 0))
-    world_size = int(os.environ.get("WORLD_SIZE", 1))
-    is_ddp = world_size > 1
-    if is_ddp:
-        torch.distributed.init_process_group(backend="nccl")
-        torch.cuda.set_device(local_rank)
-    device = f"cuda:{local_rank}"
-    is_main = (not is_ddp) or local_rank == 0
+    # ---- distributed init (GPU or TPU)
+    backend_type = cfg.get("backend", "auto")
+    if backend_type == "auto":
+        backend_type = None  # auto-detect
+    backend = get_backend(backend_type)
+    backend.init_distributed()
+    device = backend.get_device()
+    is_main = backend.is_main_process()
 
-    torch.manual_seed(42 + local_rank)
+    # iter 18 lever 4: start the XLA profiler server so external tools
+    # (capture_profile.py / TensorBoard) can attach. Rank-0 only --
+    # multi-host pods would collide on port 9012. Single-host v6e-8
+    # has one process so this is unconditional once is_main passes.
+    is_tpu_early = cfg.get("backend", "auto") == "tpu"
+    # iter 20 fix: the return value of xp.start_server() must be
+    # bound to a long-lived name. Per torch_xla.debug.profiler
+    # docstring: "If this object is garbage collected, the profiler
+    # server is shut down." Iter 17-19 dropped the return value, so
+    # the gRPC server died immediately after the print statement and
+    # the external xp.trace() always got "Connection refused". Stash
+    # it on `main` itself so it survives until interpreter exit.
+    main._xp_profiler_server = None
+    if is_tpu_early and is_main:
+        try:
+            import torch_xla.debug.profiler as xp
+
+            xp_port = int(os.environ.get("XLA_PROFILER_PORT", "9012"))
+            main._xp_profiler_server = xp.start_server(xp_port)
+            print(
+                f"[profiler] xp.start_server listening on :{xp_port}"
+                f" (server obj retained: {main._xp_profiler_server!r})",
+                flush=True,
+            )
+        except Exception as e:
+            print(f"[profiler] xp.start_server failed: {e}", flush=True)
+
+    torch.manual_seed(42 + int(os.environ.get("LOCAL_RANK", 0)))
 
     if is_main:
         print("\n=== Effective config ===")
@@ -342,107 +686,302 @@ def main():
     # ---- model
     if is_main:
         print("\n=== Building composite model ===")
-    model = TinyAyaMoshiComposite(num_codebooks=num_codebooks)
+    use_scan = bool(cfg["train"].get("use_scan_layers", False))
+    use_xla_ckpt = bool(cfg["train"].get("xla_grad_checkpoint", False))
+    model = TinyAyaMoshiComposite(
+        num_codebooks=num_codebooks,
+        use_scan_layers=use_scan,
+        xla_grad_checkpoint=use_xla_ckpt,
+    )
     model.backbone = apply_lora(model.backbone, r=16)
     freeze_depth_internals(model)
     for p in model.projection.parameters():
         p.requires_grad = True
     model = model.to(device)
-    model.backbone.gradient_checkpointing_enable()
 
-    # ---- DDP wrap (after all surgery so requires_grad is final)
-    if is_ddp:
-        model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[local_rank], output_device=local_rank,
-            find_unused_parameters=True, broadcast_buffers=False,
-        )
-    unwrapped = model.module if is_ddp else model
+    # Gradient checkpointing strategy:
+    #   * GPU: enable HF's per-layer grad checkpoint here, before DDP
+    #     wrapping. This is the standard HF Trainer pattern.
+    #   * TPU: do NOT call HF's gradient_checkpointing_enable -- in
+    #     torch_xla 2.9 it raises from torch._get_device_module("xla").
+    #     We use the ``xla_grad_checkpoint`` flag instead, which routes
+    #     through scan_utils.
+    if cfg.get("backend", "auto") != "tpu":
+        model.backbone.gradient_checkpointing_enable()
+    model = backend.wrap_model(model)
+    # iter 24e: barrier helper DISABLED. Bisection evidence:
+    #   iter 24d (barrier ON, lever 6 OFF, b=16) -> NaN at step 3
+    #   iter 24c (barrier ON, lever 6 ON,  b=16) -> NaN at step 32
+    #   iter 23  (barrier OFF, lever 6 OFF, b=16) -> NaN-free 257 steps,
+    #                                                OOM at step 258
+    # The barrier helper is the proven NaN trigger -- the 42
+    # register_full_backward_hook calls force XLA to materialize 42
+    # backward-graph boundaries that don't fuse, exposing per-layer
+    # bf16 underflow on v6e (pytorch/xla #8591). Lever 6 (fp32 norm
+    # reduction) was MASKING the NaN, not causing it.
+    # We accept the iter 23 OOM at step 258 here; mitigation in 24f
+    # via batch_size=8 (per #8591 explicit upstream advice) or via
+    # checkpoint-and-resume.
+    barrier_enabled = bool(cfg.get("train", {}).get("fsdp_barrier_hook", False))
+    if cfg.get("backend", "auto") == "tpu" and barrier_enabled:
+        _apply_fsdpv2_backward_barriers(model)
+    if hasattr(backend, "diagnose"):
+        backend.diagnose("post-wrap")
+    unwrapped = model.module if hasattr(model, "module") else model
 
     total = sum(p.numel() for p in unwrapped.parameters())
     trainable = sum(p.numel() for p in unwrapped.parameters() if p.requires_grad)
     if is_main:
-        print(f"Total {total/1e9:.2f}B, trainable {trainable/1e6:.0f}M "
-              f"({100*trainable/total:.1f}%)")
+        print(
+            f"Total {total / 1e9:.2f}B, trainable {trainable / 1e6:.0f}M "
+            f"({100 * trainable / total:.1f}%)"
+        )
 
     # ---- data
     if is_main:
         print("\n=== Datasets ===")
-    collator = InterleavedCollator()
+    # On TPU we MUST pad every batch to the same length, otherwise XLA
+    # recompiles per unique sequence-length seen (pytorch/xla #4203 /
+    # https://docs.pytorch.org/xla/master/perf/recompilation.html). On
+    # GPU/CPU dynamic shapes are fine, so we only force fixed padding
+    # when the backend is TPU.
+    is_tpu_cfg = cfg.get("backend", "auto") == "tpu"
+    pad_to = cfg["data"].get("max_frames") if is_tpu_cfg else None
+    # iter 24h: also pad the batch axis on TPU. `drop_last=True` alone
+    # left 1035 micro-batches at b=8, so step 259 crossed the epoch
+    # boundary inside a 4-way grad-accum graph. Padded tails keep the
+    # shape static and avoid throwing away real examples.
+    batch_pad_to = cfg["train"]["batch_size"] if is_tpu_cfg else None
+    expected_codebooks = num_codebooks if is_tpu_cfg else None
+    collator = InterleavedCollator(
+        pad_to=pad_to,
+        batch_pad_to=batch_pad_to,
+        expected_num_codebooks=expected_codebooks,
+    )
     if args.dataset_mode == "streaming":
         if not cfg["data"]["train_split"]:
             raise ValueError("train_split required in streaming mode")
         train_ds = StreamingTranslationDataset(
-            cfg["data"]["train_split"], unwrapped.backbone.tokenizer,
-            max_frames=max_frames, audio_frame_rate=cfg["data"]["audio_frame_rate"],
+            cfg["data"]["train_split"],
+            unwrapped.backbone.tokenizer,
+            max_frames=max_frames,
+            audio_frame_rate=cfg["data"]["audio_frame_rate"],
             encoded_dir=cfg["data"]["encoded_dir"],
         )
         val_ds = None
         if cfg["data"]["val_split"] and Path(cfg["data"]["val_split"]).exists():
             val_ds = StreamingTranslationDataset(
-                cfg["data"]["val_split"], unwrapped.backbone.tokenizer,
-                max_frames=max_frames, audio_frame_rate=cfg["data"]["audio_frame_rate"],
+                cfg["data"]["val_split"],
+                unwrapped.backbone.tokenizer,
+                max_frames=max_frames,
+                audio_frame_rate=cfg["data"]["audio_frame_rate"],
                 encoded_dir=cfg["data"]["encoded_dir"],
             )
     else:
-        train_ds = TranslationDataset(args.data_dir, unwrapped.backbone.tokenizer,
-                                      max_frames=max_frames)
+        train_ds = TranslationDataset(
+            args.data_dir, unwrapped.backbone.tokenizer, max_frames=max_frames
+        )
         val_ds = None
 
     num_workers = cfg["data"]["num_workers"]
-    if is_ddp:
+    is_tpu = cfg.get("backend", "auto") == "tpu"
+    if backend.world_size() > 1 and not is_tpu:
         num_workers = min(num_workers, 6)
 
-    train_sampler = DistributedSampler(train_ds, shuffle=True, drop_last=True) if is_ddp else None
-    val_sampler = DistributedSampler(val_ds, shuffle=False, drop_last=False) if is_ddp and val_ds else None
+    if is_tpu:
+        # SPMD is single-process -- no distributed sampler
+        train_sampler = None
+        val_sampler = None
+    elif backend.world_size() > 1:
+        train_sampler = DistributedSampler(train_ds, shuffle=True, drop_last=True)
+        val_sampler = DistributedSampler(val_ds, shuffle=False, drop_last=False) if val_ds else None
+    else:
+        train_sampler = None
+        val_sampler = None
 
+    # TPU/XLA needs the batch dimension to stay static. The collator
+    # pads the tail batch to `batch_size`, so keep drop_last=False and
+    # preserve the full epoch.
+    train_drop_last = False
     train_loader = torch.utils.data.DataLoader(
-        train_ds, batch_size=cfg["train"]["batch_size"],
+        train_ds,
+        batch_size=cfg["train"]["batch_size"],
         shuffle=(train_sampler is None),
         sampler=train_sampler,
-        collate_fn=collator, num_workers=num_workers,
-        pin_memory=cfg["data"]["pin_memory"], persistent_workers=num_workers > 0,
+        collate_fn=collator,
+        num_workers=num_workers,
+        pin_memory=cfg["data"]["pin_memory"] and not is_tpu,
+        persistent_workers=num_workers > 0 and not is_tpu,
+        drop_last=train_drop_last,
     )
+    if is_main:
+        print(
+            "[data] "
+            f"train_rows={len(train_ds)} train_batches={len(train_loader)} "
+            f"drop_last={train_drop_last} pad_to={pad_to} batch_pad_to={batch_pad_to}",
+            flush=True,
+        )
     val_loader = None
     if val_ds is not None:
         val_loader = torch.utils.data.DataLoader(
-            val_ds, batch_size=cfg["train"]["batch_size"], shuffle=False,
+            val_ds,
+            batch_size=cfg["train"]["batch_size"],
+            shuffle=False,
             sampler=val_sampler,
-            collate_fn=collator, num_workers=num_workers,
-            pin_memory=cfg["data"]["pin_memory"], persistent_workers=num_workers > 0,
+            collate_fn=collator,
+            num_workers=num_workers,
+            pin_memory=cfg["data"]["pin_memory"] and not is_tpu,
+            persistent_workers=num_workers > 0 and not is_tpu,
         )
 
     # ---- mimi decoder for demos
     if is_main:
         print("\n=== Loading Mimi for audio monitoring ===")
     from src.data.mimi_encoder import MimiEncoder
-    mimi_encoder = MimiEncoder(device=device)
+
+    mimi_device = "cpu" if is_tpu else device
+    mimi_encoder = MimiEncoder(device=mimi_device)
 
     # ---- optimizer + scheduler
     param_groups = get_param_groups(unwrapped, cfg["optim"])
     optimizer = torch.optim.AdamW(
-        param_groups, weight_decay=cfg["train"]["weight_decay"],
+        param_groups,
+        weight_decay=cfg["train"]["weight_decay"],
         betas=(cfg["train"]["adam_beta1"], cfg["train"]["adam_beta2"]),
         eps=cfg["train"]["adam_eps"],
     )
     scheduler = WarmupCosineScheduler(
-        optimizer, warmup_steps=cfg["train"]["warmup_steps"],
+        optimizer,
+        warmup_steps=cfg["train"]["warmup_steps"],
         total_steps=cfg["train"]["max_steps"],
         min_lr_ratio=cfg["train"]["min_lr_ratio"],
     )
 
+    from src.training.checkpointing import find_latest_checkpoint, load_checkpoint_with_backend
+
     start_step = 0
-    if args.resume:
-        start_step = load_checkpoint(unwrapped, optimizer, scheduler, args.resume)
+    resume_dir = args.resume
+    if resume_dir == "auto":
+        resume_dir = find_latest_checkpoint(cfg["logging"]["save_dir"])
+    if resume_dir:
+        start_step = load_checkpoint_with_backend(
+            unwrapped, optimizer, scheduler, resume_dir, backend
+        )
         if is_main:
             print(f"Resumed at step {start_step}")
 
     # ---- wandb
+    # On a multi-host TPU pod (v4-32 = 4 hosts) every host calls this
+    # block. Without coordination we get 4 separate runs all named the
+    # same, with fragmented loss/system metrics. We use wandb shared-mode
+    # (>= 0.19.9): the GLOBAL primary creates the run, broadcasts its
+    # run-id via a GCS rendezvous file, and the 3 worker hosts attach
+    # to the same run with x_primary=False. Result: ONE wandb dashboard
+    # with global metrics from primary + per-host system stats labelled
+    # rank_0..rank_3. Pattern: docs.wandb.ai/guides/track/log/
+    # distributed-training#track-all-processes-to-a-single-run
     use_wandb = cfg["logging"]["use_wandb"]
-    if use_wandb and is_main:
+    if use_wandb:
         import wandb
-        wandb.init(project=cfg["logging"]["wandb_project"],
-                   name=cfg["logging"]["wandb_run_name"],
-                   config=cfg)
+
+        try:
+            host_idx = backend.host_index() if hasattr(backend, "host_index") else 0
+        except Exception:
+            host_idx = 0
+
+        rendezvous_uri = os.environ.get(
+            "WANDB_RENDEZVOUS_URI",
+            f"gs://tinyaya-stage2-tpu/wandb-rendezvous/{cfg['logging']['wandb_run_name']}.id",
+        )
+
+        if is_tpu and not is_main:
+            # Worker host: wait for primary to publish run-id, then attach.
+            run_id = None
+            for _attempt in range(60):
+                try:
+                    import subprocess as _sp
+
+                    out = _sp.run(
+                        ["gsutil", "cat", rendezvous_uri],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    if out.returncode == 0 and out.stdout.strip():
+                        run_id = out.stdout.strip()
+                        break
+                except Exception:
+                    pass
+                time.sleep(5)
+
+            if run_id:
+                wandb.init(
+                    project=cfg["logging"]["wandb_project"],
+                    id=run_id,
+                    settings=wandb.Settings(
+                        mode="shared",
+                        x_label=f"rank_{host_idx}",
+                        x_primary=False,
+                        x_update_finish_state=False,
+                    ),
+                    config=cfg,
+                )
+                print(f"[wandb] worker host {host_idx} attached to shared run {run_id}", flush=True)
+            else:
+                print(
+                    f"[wandb] worker host {host_idx} failed to find rendezvous; "
+                    f"disabling wandb on this host",
+                    flush=True,
+                )
+                use_wandb = False
+        elif is_main:
+            # Primary host: create the run, publish run-id.
+            wandb.init(
+                project=cfg["logging"]["wandb_project"],
+                name=cfg["logging"]["wandb_run_name"],
+                config=cfg,
+                settings=wandb.Settings(
+                    mode="shared",
+                    x_label="rank_0",
+                    x_primary=True,
+                )
+                if is_tpu
+                else None,
+            )
+            # TPU note: wandb.log(data, step=N) is ignored in shared mode;
+            # the _step counter auto-increments from 0 regardless. Use
+            # define_metric with a custom step_metric so charts show actual
+            # training step (10, 20, ..., 5000) instead of the internal
+            # counter (0, 1, ..., 499).
+            wandb.define_metric("global_step", hidden=True)
+            wandb.define_metric("train/*", step_metric="global_step")
+            wandb.define_metric("perf/*", step_metric="global_step")
+            wandb.define_metric("val/*", step_metric="global_step")
+            wandb.define_metric("audio/*", step_metric="global_step")
+            wandb.define_metric("mem/*", step_metric="global_step")
+            if is_tpu:
+                run_id = wandb.run.id
+                try:
+                    import subprocess as _sp
+                    import tempfile as _tf
+
+                    with _tf.NamedTemporaryFile("w", suffix=".id", delete=False) as f:
+                        f.write(run_id)
+                        local_path = f.name
+                    _sp.run(
+                        ["gsutil", "cp", local_path, rendezvous_uri],
+                        check=False,
+                        capture_output=True,
+                        timeout=20,
+                    )
+                    print(
+                        f"[wandb] primary published run_id={run_id} to {rendezvous_uri}", flush=True
+                    )
+                except Exception as e:
+                    print(f"[wandb] primary failed to publish run_id: {e}", flush=True)
+        else:
+            # Non-main on single-host (CPU/GPU): no-op.
+            use_wandb = False
 
     # ---- hub push config
     push_to_hub = cfg["logging"]["push_to_hub"] and is_main
@@ -462,6 +1001,19 @@ def main():
     best_val = float("inf")
 
     grad_accum = cfg["train"]["grad_accum"]
+    # XLA traces all grad-accum micro-batches into one macro-step graph.
+    # Never let one macro-step straddle an epoch reset: that host-side
+    # branch was the remaining step-259 topology risk after iter 24g.
+    micro_batches_per_epoch = len(train_loader)
+    usable_micro_batches_per_epoch = (
+        (micro_batches_per_epoch // grad_accum) * grad_accum if is_tpu else micro_batches_per_epoch
+    )
+    micro_batches_seen_this_epoch = 0
+    if is_tpu and usable_micro_batches_per_epoch == 0:
+        raise RuntimeError(
+            f"TPU train_loader has only {micro_batches_per_epoch} micro-batches, "
+            f"less than grad_accum={grad_accum}"
+        )
     step = start_step
     max_steps = cfg["train"]["max_steps"]
     log_every = cfg["logging"]["log_every"]
@@ -470,92 +1022,488 @@ def main():
     val_every = cfg["logging"]["val_every"]
     text_w = cfg["loss"]["text_weight"]
     audio_w = cfg["loss"]["audio_weight"]
+    perf_cfg = cfg.get("perf", {})
+    perf_enabled = bool(perf_cfg.get("enabled", False))
+    perf_warmup_skip_steps = int(perf_cfg.get("warmup_skip_steps", 50))
+    perf_step_times: list[float] = []
+    effective_batch = cfg["train"]["batch_size"] * grad_accum * max(1, backend.world_size())
+    frame_tokens_per_step = effective_batch * max_frames
 
-    if is_main:
-        print(f"\n=== Training: {max_steps} steps, accum={grad_accum}, "
-              f"batch={cfg['train']['batch_size']} ===")
-    model.train()
-    optimizer.zero_grad()
+    xprof_trace = None
+    if is_tpu and bool(perf_cfg.get("xprof_trace_labels", False)):
+        try:
+            import torch_xla.debug.profiler as xp
 
-    while step < max_steps:
-        # grad accumulation micro-steps
-        micro_loss_sum = 0.0
-        micro_text = 0.0
-        micro_audio = 0.0
+            xprof_trace = xp.Trace
+        except Exception as e:
+            if is_main:
+                print(f"[perf] xprof trace labels disabled: {e}", flush=True)
+
+    def trace_ctx(name: str):
+        # GPU analogue: torch.profiler.record_function. On TPU this only
+        # emits labels when an external XProf capture is active.
+        return xprof_trace(name) if xprof_trace else contextlib.nullcontext()
+
+    replay_batches: deque[dict[str, torch.Tensor]] = deque()
+
+    def next_train_batch(
+        record_for_replay: list[dict[str, torch.Tensor]] | None = None,
+    ) -> dict[str, torch.Tensor]:
+        """Return the next host batch while preserving TPU epoch topology."""
+        nonlocal data_iter, micro_batches_seen_this_epoch
+
+        from_replay = bool(replay_batches)
+        if from_replay:
+            batch = replay_batches.popleft()
+        else:
+            try:
+                batch = next(data_iter)
+            except StopIteration:
+                if train_sampler is not None:
+                    train_sampler.set_epoch(step)
+                data_iter = iter(train_loader)
+                micro_batches_seen_this_epoch = 0
+                batch = next(data_iter)
+            if record_for_replay is not None:
+                record_for_replay.append(batch)
+        if is_tpu:
+            micro_batches_seen_this_epoch += 1
+        return batch
+
+    def ensure_adamw_state_for_gradients() -> None:
+        """Create AdamW moment tensors before the TPU warmup optimizer graph."""
+        for group in optimizer.param_groups:
+            for p in group["params"]:
+                if p.grad is None:
+                    continue
+                state = optimizer.state[p]
+                if state:
+                    continue
+                state["step"] = torch.zeros((), dtype=torch.float32)
+                state["exp_avg"] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                state["exp_avg_sq"] = torch.zeros_like(p, memory_format=torch.preserve_format)
+
+    def reset_optimizer_state() -> None:
+        """Zero AdamW moments and step counters after compile warmup."""
+        for state in optimizer.state.values():
+            for key, value in state.items():
+                if torch.is_tensor(value):
+                    value.zero_()
+                elif isinstance(value, (int, float)):
+                    state[key] = type(value)(0)
+
+    def trainable_weight_sentinel(
+        max_tensors: int = 8,
+        values_per_tensor: int = 16,
+    ) -> list[float]:
+        """Copy a tiny trainable-parameter sentinel for the warmup drift check."""
+        chunks = []
+        for p in model.parameters():
+            if p.requires_grad:
+                chunks.append(p.detach().flatten()[:values_per_tensor].float())
+                if len(chunks) >= max_tensors:
+                    break
+        if not chunks:
+            return []
+        sentinel = torch.cat(chunks)
+        if is_tpu:
+            import torch_xla.core.xla_model as _xm
+
+            _xm.mark_step()
+        return [float(v) for v in sentinel.cpu().tolist()]
+
+    def run_macro_step(
+        *,
+        advance_scheduler: bool,
+        ensure_optimizer_state: bool = False,
+        record_for_replay: list[dict[str, torch.Tensor]] | None = None,
+    ) -> dict[str, object]:
+        """Run one static grad-accum macro-step and return unlogged metrics.
+
+        Notes:
+            TPU note: compile warmup calls this with zero LR and
+            ``advance_scheduler=False`` so XLA sees the same
+            forward/backward/optimizer graph without advancing visible
+            training state.
+        """
+        if is_tpu:
+            micro_loss_sum_xla = torch.tensor(0.0, device=device)
+            micro_text_xla = torch.tensor(0.0, device=device)
+            micro_audio_xla = torch.tensor(0.0, device=device)
+        else:
+            micro_loss_sum = 0.0
+            micro_text = 0.0
+            micro_audio = 0.0
         micro_per_cb = torch.zeros(num_codebooks)
         for micro in range(grad_accum):
             sync_ctx = (
-                contextlib.nullcontext()
-                if (not is_ddp or micro == grad_accum - 1)
-                else model.no_sync()
+                contextlib.nullcontext() if micro == grad_accum - 1 else backend.no_sync(model)
             )
             with sync_ctx:
-                try:
-                    batch = next(data_iter)
-                except StopIteration:
-                    if train_sampler is not None:
-                        train_sampler.set_epoch(step)
-                    data_iter = iter(train_loader)
-                    batch = next(data_iter)
+                with trace_ctx("data_fetch"):
+                    batch = next_train_batch(record_for_replay)
 
-                text_ids = batch["text_ids"].to(device)
-                all_codes = batch["audio_codes"].to(device)
-                cb0 = all_codes[:, 0, :]
-                mask = batch["attention_mask"].to(device)
-                loss_mask = batch["loss_mask"].to(device)
+                batch_audio = batch["audio_codes"]
+                if is_tpu:
+                    expected_batch = cfg["train"]["batch_size"]
+                    expected_2d = (expected_batch, max_frames)
+                    expected_audio = (expected_batch, num_codebooks, max_frames)
+                    if batch_audio.shape[1] < num_codebooks:
+                        raise RuntimeError(
+                            f"TPU batch has {batch_audio.shape[1]} codebooks; "
+                            f"expected at least {num_codebooks}"
+                        )
+                    if batch_audio.shape[1] != num_codebooks:
+                        batch_audio = batch_audio[:, :num_codebooks, :].contiguous()
+                    actual = {
+                        "text_ids": tuple(batch["text_ids"].shape),
+                        "audio_codes": tuple(batch_audio.shape),
+                        "attention_mask": tuple(batch["attention_mask"].shape),
+                        "loss_mask": tuple(batch["loss_mask"].shape),
+                    }
+                    if (
+                        actual["text_ids"] != expected_2d
+                        or actual["audio_codes"] != expected_audio
+                        or actual["attention_mask"] != expected_2d
+                        or actual["loss_mask"] != expected_2d
+                    ):
+                        raise RuntimeError(
+                            "TPU static-shape invariant violated: "
+                            f"expected text/mask/loss={expected_2d}, "
+                            f"audio={expected_audio}; got {actual}"
+                        )
 
-                with torch.amp.autocast("cuda", dtype=torch.bfloat16):
-                    output = model(text_ids=text_ids, audio_codes=cb0, attention_mask=mask,
-                                   full_audio_codes=all_codes[:, :num_codebooks, :],
-                                   depth_chunk_size=depth_chunk)
-                    audio_targets = all_codes[:, :num_codebooks, :]
-                    losses = compute_hierarchical_translation_loss(
-                        output["text_logits"], output["audio_logits"],
-                        text_ids, audio_targets, mask, loss_mask,
-                        text_weight=text_w, audio_weight=audio_w,
-                    )
+                with trace_ctx("device_transfer"):
+                    text_ids = batch["text_ids"].to(device)
+                    all_codes = batch_audio.to(device)
+                    cb0 = all_codes[:, 0, :]
+                    mask = batch["attention_mask"].to(device)
+                    loss_mask = batch["loss_mask"].to(device)
+
+                    # Mark input sharding for TPU SPMD.
+                    if hasattr(backend, "mark_sharding"):
+                        backend.mark_sharding(text_ids, ("fsdp", None))
+                        backend.mark_sharding(all_codes, ("fsdp", None, None))
+                        backend.mark_sharding(mask, ("fsdp", None))
+                        backend.mark_sharding(loss_mask, ("fsdp", None))
+
+                with trace_ctx("forward_loss"):
+                    with backend.autocast_context(dtype=torch.bfloat16):
+                        output = model(
+                            text_ids=text_ids,
+                            audio_codes=cb0,
+                            attention_mask=mask,
+                            full_audio_codes=all_codes[:, :num_codebooks, :],
+                            depth_chunk_size=depth_chunk,
+                        )
+                        text_logits, audio_logits, _ = output
+                        audio_targets = all_codes[:, :num_codebooks, :]
+                        losses = compute_hierarchical_translation_loss(
+                            text_logits,
+                            audio_logits,
+                            text_ids,
+                            audio_targets,
+                            mask,
+                            loss_mask,
+                            text_weight=text_w,
+                            audio_weight=audio_w,
+                        )
                 loss = losses["loss"] / grad_accum
-                loss.backward()
-            micro_loss_sum += losses["loss"].item()
-            micro_text += losses["text_loss"].item()
-            micro_audio += losses["audio_loss"].item()
-            micro_per_cb += losses["per_codebook_loss"].detach().cpu()
+                with trace_ctx("backward"):
+                    loss.backward()
+            if is_tpu:
+                micro_loss_sum_xla = micro_loss_sum_xla + losses["loss"].detach()
+                micro_text_xla = micro_text_xla + losses["text_loss"].detach()
+                micro_audio_xla = micro_audio_xla + losses["audio_loss"].detach()
+            else:
+                micro_loss_sum += losses["loss"].item()
+                micro_text += losses["text_loss"].item()
+                micro_audio += losses["audio_loss"].item()
+                micro_per_cb += losses["per_codebook_loss"].detach().cpu()
 
-        # macro-step
-        grad_norm = torch.nn.utils.clip_grad_norm_(
-            model.parameters(), cfg["train"]["max_grad_norm"])
-        if not torch.isfinite(torch.tensor(micro_loss_sum / grad_accum)):
-            print(f"!!! Non-finite loss at step {step}. Aborting.")
-            sys.exit(2)
+        if ensure_optimizer_state:
+            ensure_adamw_state_for_gradients()
 
-        optimizer.step()
-        scheduler.step(step + 1)
-        optimizer.zero_grad()
+        # macro-step -- gradient clipping.
+        # On FSDPv2 SPMD, vanilla torch.nn.utils.clip_grad_norm_
+        # deadlocks at the all-reduce barrier with heterogeneous
+        # parameter groups (HF #41881, pytorch/xla #3424).
+        # Single-host v6e-8 SPMD invalidates the cross-host deadlock
+        # concern (no inter-host all-reduce), but the per-param
+        # graph-break storm from vanilla clip_grad_norm_ remains
+        # (~550 graph breaks per step under FSDPv2).
+        #
+        # iter 19 lever 6: re-enable gradient clipping on TPU using
+        # variant 6a -- a fused single-graph clip that avoids .item()
+        # and produces a single fused HLO computation. The pattern:
+        #   1. Accumulate total_sq_norm from all grad tensors (fused)
+        #   2. Compute clip_coef = max_norm / (total_norm + eps)
+        #   3. Apply torch.where to conditionally scale grads
+        #   4. Single xm.mark_step() fence for the entire clip
+        # This populates the train/grad_norm wandb metric (was 0.0)
+        # and detects exploding gradients, at ~5-15% throughput cost.
+        if is_tpu:
+            import torch_xla.core.xla_model as _xm
+
+            # iter 23: lever 6 (fused clip) is gated behind a config
+            # flag. Both iter 21 (vanilla clip) and iter 22 (clip with
+            # set_to_none=False + requires_grad iteration) OOM-crashed
+            # at step 258 with an HLO temp of 89 GiB. The crash was
+            # bit-deterministic across runs (same seed, same data) and
+            # was triggered by a NEW graph hash compiled on the lever
+            # 6 mark_step at step 258. Even after stabilising the
+            # iteration set with requires_grad, FSDPv2 evidently still
+            # reshards or otherwise produces a fresh graph for that
+            # specific batch, and the new graph happens to need 5.7x
+            # the steady-state HBM. Until we can root-cause that
+            # recompile, this run keeps lever 6 OFF (matches iter 18c)
+            # and trades the train/grad_norm metric for run stability.
+            enable_clip = bool(cfg["train"].get("enable_clip_grad_norm", False))
+            if enable_clip:
+                max_grad_norm = cfg["train"].get("max_grad_norm", 1.0)
+                total_sq = torch.tensor(0.0, device=device)
+                for p in model.parameters():
+                    if not p.requires_grad:
+                        continue
+                    if p.grad is None:
+                        p.grad = torch.zeros_like(p)
+                    total_sq = total_sq + (p.grad.float() ** 2).sum()
+                total_norm = total_sq.sqrt()
+                clip_coef = max_grad_norm / (total_norm + 1e-6)
+                clip_coef = torch.where(clip_coef < 1.0, clip_coef, torch.ones_like(clip_coef))
+                for p in model.parameters():
+                    if not p.requires_grad:
+                        continue
+                    if p.grad is None:
+                        p.grad = torch.zeros_like(p)
+                    p.grad.mul_(clip_coef)
+                with trace_ctx("mark_step"):
+                    _xm.mark_step()
+                grad_norm = total_norm
+            else:
+                with trace_ctx("mark_step"):
+                    _xm.mark_step()
+                grad_norm = torch.tensor(0.0)
+        else:
+            grad_norm = torch.nn.utils.clip_grad_norm_(
+                model.parameters(), cfg["train"]["max_grad_norm"]
+            )
+            if not torch.isfinite(torch.tensor(micro_loss_sum / grad_accum)):
+                print(f"!!! Non-finite loss at step {step}. Aborting.")
+                sys.exit(2)
+
+        with trace_ctx("optimizer_step"):
+            backend.optimizer_step(optimizer)
+            if advance_scheduler:
+                scheduler.step(step + 1)
+            # iter 22: keep grads allocated as zero (see top-of-loop
+            # comment) so the next step's lever 6 clip sees the same
+            # parameter set as this one.
+            optimizer.zero_grad(set_to_none=False)
+
+        if is_tpu:
+            return {
+                "loss_xla": micro_loss_sum_xla,
+                "text_xla": micro_text_xla,
+                "audio_xla": micro_audio_xla,
+                "grad_norm": grad_norm,
+            }
+        return {
+            "loss": micro_loss_sum,
+            "text": micro_text,
+            "audio": micro_audio,
+            "per_cb": micro_per_cb,
+            "grad_norm": grad_norm,
+        }
+
+    if is_main:
+        print(
+            f"\n=== Training: {max_steps} steps, accum={grad_accum}, "
+            f"batch={cfg['train']['batch_size']} ==="
+        )
+    model.train()
+    # iter 22: set_to_none=False keeps every .grad slot allocated as a
+    # zero tensor between optimizer steps, so the lever 6 clip and any
+    # FSDPv2 reduce-scatter sees a stable parameter set on EVERY step.
+    # Default set_to_none=True can leave .grad=None for params that
+    # didn't receive gradient flow this step, and that variance was
+    # the trigger for the iter 21 OOM at step 258.
+    optimizer.zero_grad(set_to_none=False)
+
+    # On TPU/SPMD, calling .item() / .cpu() inside the training loop forces
+    # an XLA materialise-and-transfer that BLOCKS until the entire lazy
+    # graph compiles + executes. With heterogeneous LoRA + full_ft groups
+    # and grad_accum=2, this can take 30-60 minutes per step (see
+    # pytorch/xla #4203, #8020, troubleshooting "_local_scalar_dense
+    # typically indicates CPU context access"). We keep the running
+    # accumulators as XLA tensors and materialise once per log_every.
+    if is_tpu:
+        running_xla = {
+            "loss": torch.tensor(0.0, device=device),
+            "text": torch.tensor(0.0, device=device),
+            "audio": torch.tensor(0.0, device=device),
+        }
+
+    # iter 19 lever 4 fix: profiler capture must happen from a SEPARATE
+    # process, not from a background thread in the training process.
+    # The in-process auto-capture failed with "Connection refused"
+    # because xp.trace() could not connect to its own xp.start_server
+    # (per pytorch/xla capture_profile.py pattern -- the server is
+    # meant to be queried from an external process). The launcher
+    # script now handles this by SSH'ing back and running
+    # capture_profile.py after the first compile completes (~10 min).
+    # xp.start_server(9012) at startup still works and is kept.
+
+    compile_warmup_steps = int(cfg["train"].get("compile_warmup_steps", 0) or 0)
+    if compile_warmup_steps < 0:
+        raise ValueError("train.compile_warmup_steps must be >= 0")
+    if compile_warmup_steps and start_step > 0:
+        if is_main:
+            print(
+                f"[compile-warmup] skipped because resume start_step={start_step}",
+                flush=True,
+            )
+    elif compile_warmup_steps and not is_tpu:
+        if is_main:
+            print("[compile-warmup] skipped because backend is not TPU", flush=True)
+    elif compile_warmup_steps:
+        if is_main:
+            print(
+                f"\n=== TPU compile warmup: {compile_warmup_steps} zero-LR macro-step(s) ===",
+                flush=True,
+            )
+        warmup_replay: list[dict[str, torch.Tensor]] = []
+        saved_lrs = [group["lr"] for group in optimizer.param_groups]
+        saved_weight_decays = [group.get("weight_decay", 0.0) for group in optimizer.param_groups]
+        sentinel_before = trainable_weight_sentinel()
+        try:
+            for group in optimizer.param_groups:
+                group["lr"] = 0.0
+                group["weight_decay"] = 0.0
+            for _ in range(compile_warmup_steps):
+                if (
+                    is_tpu
+                    and micro_batches_seen_this_epoch + grad_accum > usable_micro_batches_per_epoch
+                ):
+                    data_iter = iter(train_loader)
+                    micro_batches_seen_this_epoch = 0
+                run_macro_step(
+                    advance_scheduler=False,
+                    ensure_optimizer_state=True,
+                    record_for_replay=warmup_replay,
+                )
+        finally:
+            for group, lr, weight_decay in zip(
+                optimizer.param_groups,
+                saved_lrs,
+                saved_weight_decays,
+                strict=True,
+            ):
+                group["lr"] = lr
+                group["weight_decay"] = weight_decay
+        reset_optimizer_state()
+        import torch_xla.core.xla_model as _xm
+
+        _xm.mark_step()
+        optimizer.zero_grad(set_to_none=False)
+        sentinel_after = trainable_weight_sentinel()
+        if sentinel_after != sentinel_before:
+            raise RuntimeError(
+                "TPU compile warmup changed sampled trainable weights: "
+                f"before={sentinel_before[:4]} after={sentinel_after[:4]}"
+            )
+        micro_batches_seen_this_epoch = 0
+        replay_batches.extend(warmup_replay)
+        if is_main:
+            print(
+                "[compile-warmup] complete; optimizer state reset and "
+                f"{len(warmup_replay)} micro-batch(es) queued for visible training",
+                flush=True,
+            )
+
+    while step < max_steps:
+        if is_tpu and micro_batches_seen_this_epoch + grad_accum > usable_micro_batches_per_epoch:
+            data_iter = iter(train_loader)
+            micro_batches_seen_this_epoch = 0
+
+        macro = run_macro_step(advance_scheduler=True)
         step += 1
+        if step in (1, 2, 5, 10, 25, 50):
+            if hasattr(backend, "diagnose"):
+                backend.diagnose(f"step={step}")
 
-        running["loss"] += micro_loss_sum / grad_accum
-        running["text"] += micro_text / grad_accum
-        running["audio"] += micro_audio / grad_accum
-        running["per_cb"] += micro_per_cb / grad_accum
+        grad_norm = macro["grad_norm"]
+        if is_tpu:
+            running_xla["loss"] = running_xla["loss"] + macro["loss_xla"] / grad_accum
+            running_xla["text"] = running_xla["text"] + macro["text_xla"] / grad_accum
+            running_xla["audio"] = running_xla["audio"] + macro["audio_xla"] / grad_accum
+        else:
+            running["loss"] += macro["loss"] / grad_accum
+            running["text"] += macro["text"] / grad_accum
+            running["audio"] += macro["audio"] / grad_accum
+            running["per_cb"] += macro["per_cb"] / grad_accum
 
         # ---- logging
         if step % log_every == 0:
-            avg = {k: (v / log_every if k != "per_cb" else (v / log_every).tolist())
-                   for k, v in running.items()}
+            if is_tpu:
+                import torch_xla.core.xla_model as _xm
+
+                # Single materialisation of all losses at log boundary.
+                with trace_ctx("logging_materialize"):
+                    _xm.mark_step()
+                    avg = {
+                        "loss": (running_xla["loss"] / log_every).item(),
+                        "text": (running_xla["text"] / log_every).item(),
+                        "audio": (running_xla["audio"] / log_every).item(),
+                        "per_cb": [0.0] * num_codebooks,
+                    }
+            else:
+                avg = {
+                    k: (v / log_every if k != "per_cb" else (v / log_every).tolist())
+                    for k, v in running.items()
+                }
             now = time.time()
-            step_time = (now - t_last) / log_every
+            log_interval_sec = now - t_last
+            step_time = log_interval_sec / log_every
             t_last = now
-            lrs = {f"train/lr_{g['name']}": g['lr'] for g in optimizer.param_groups
-                   if 'name' in g}
-            peak_gb = torch.cuda.max_memory_allocated() / 1e9
-            alloc_gb = torch.cuda.memory_allocated() / 1e9
+            perf_log = {}
+            if perf_enabled:
+                if step >= perf_warmup_skip_steps:
+                    perf_step_times.append(step_time)
+                perf_log = {
+                    "perf/effective_batch": effective_batch,
+                    "perf/examples_per_sec": effective_batch / step_time if step_time > 0 else 0,
+                    "perf/frame_tokens_per_sec": (
+                        frame_tokens_per_step / step_time if step_time > 0 else 0
+                    ),
+                    "perf/log_interval_sec": log_interval_sec,
+                }
+                p50 = _percentile(perf_step_times, 0.50)
+                p90 = _percentile(perf_step_times, 0.90)
+                p99 = _percentile(perf_step_times, 0.99)
+                if p50 is not None:
+                    perf_log.update(
+                        {
+                            "perf/p50_step_time": p50,
+                            "perf/p90_step_time": p90,
+                            "perf/p99_step_time": p99,
+                            "perf/steady_window_steps": len(perf_step_times),
+                        }
+                    )
+            lrs = {f"train/lr_{g['name']}": g["lr"] for g in optimizer.param_groups if "name" in g}
+            mem_info = backend.get_memory_info()
+            peak_gb = mem_info["max_allocated_gb"] if mem_info else 0
+            alloc_gb = mem_info["allocated_gb"] if mem_info else 0
             if is_main:
-                print(f"step {step:6d} | loss {avg['loss']:.4f} | "
-                      f"text {avg['text']:.4f} audio {avg['audio']:.4f} | "
-                      f"grad {grad_norm:.3f} | {step_time:.2f}s/step | "
-                      f"peak {peak_gb:.1f}G")
+                print(
+                    f"step {step:6d} | loss {avg['loss']:.4f} | "
+                    f"text {avg['text']:.4f} audio {avg['audio']:.4f} | "
+                    f"grad {grad_norm:.3f} | {step_time:.2f}s/step | "
+                    f"peak {peak_gb:.1f}G"
+                )
             if use_wandb and is_main:
                 import wandb
+
                 log = {
                     "train/loss": avg["loss"],
                     "train/text_loss": avg["text"],
@@ -564,22 +1512,52 @@ def main():
                     "perf/step_time": step_time,
                     "mem/peak_gb": peak_gb,
                     "mem/allocated_gb": alloc_gb,
+                    **perf_log,
                     **lrs,
                 }
                 for i, v in enumerate(avg["per_cb"]):
                     log[f"train/per_codebook_loss_{i}"] = v
-                wandb.log(log, step=step)
-            running = {"loss": 0.0, "text": 0.0, "audio": 0.0,
-                       "per_cb": torch.zeros(num_codebooks)}
-            torch.cuda.reset_peak_memory_stats()
+                log["global_step"] = step
+                wandb.log(log)
+            if is_tpu:
+                running_xla = {
+                    "loss": torch.tensor(0.0, device=device),
+                    "text": torch.tensor(0.0, device=device),
+                    "audio": torch.tensor(0.0, device=device),
+                }
+            else:
+                running = {
+                    "loss": 0.0,
+                    "text": 0.0,
+                    "audio": 0.0,
+                    "per_cb": torch.zeros(num_codebooks),
+                }
+                if mem_info:
+                    torch.cuda.reset_peak_memory_stats()
+            backend.sync()
 
         # ---- audio demo
-        if audio_every and step % audio_every == 0 and is_main:
+        # Skip on TPU: generate_audio_sample contains an autoregressive
+        # Python loop with `tok.cpu()` inside an inner per-codebook
+        # loop (640 sync points) AND the backbone forward sees a
+        # growing-by-1 sequence each iter, which forces a fresh XLA
+        # compile per generation step. Empirically that locks the
+        # main thread for 2-3 hours per call. The audio demo is a
+        # qualitative sanity check, not a training requirement;
+        # generate samples post-training on a GPU instead.
+        if audio_every and step % audio_every == 0 and is_main and not is_tpu:
             try:
-                r = generate_audio_sample(unwrapped, train_ds, mimi_encoder, device,
-                                          num_codebooks, sample_idx=0,
-                                          max_target_frames=80)
-                print(f"  demo cb0_acc={r['cb0_accuracy']*100:.1f}%")
+                r = generate_audio_sample(
+                    unwrapped,
+                    train_ds,
+                    mimi_encoder,
+                    device,
+                    num_codebooks,
+                    sample_idx=0,
+                    max_target_frames=80,
+                    backend=backend,
+                )
+                print(f"  demo cb0_acc={r['cb0_accuracy'] * 100:.1f}%")
                 ad = save_dir / "audio_samples" / f"step_{step:06d}"
                 ad.mkdir(parents=True, exist_ok=True)
                 sf.write(ad / "source.wav", r["source_wav"], 24000)
@@ -587,86 +1565,159 @@ def main():
                 sf.write(ad / "generated.wav", r["generated_wav"], 24000)
                 if use_wandb:
                     import wandb
-                    wandb.log({
-                        "audio/source": wandb.Audio(r["source_wav"], sample_rate=24000),
-                        "audio/target_gt": wandb.Audio(r["target_gt_wav"], sample_rate=24000),
-                        "audio/generated": wandb.Audio(r["generated_wav"], sample_rate=24000),
-                        "audio/cb0_accuracy_train": r["cb0_accuracy"],
-                    }, step=step)
+
+                    wandb.log(
+                        {
+                            "global_step": step,
+                            "audio/source": wandb.Audio(r["source_wav"], sample_rate=24000),
+                            "audio/target_gt": wandb.Audio(r["target_gt_wav"], sample_rate=24000),
+                            "audio/generated": wandb.Audio(r["generated_wav"], sample_rate=24000),
+                            "audio/cb0_accuracy_train": r["cb0_accuracy"],
+                        },
+                    )
             except Exception as e:
                 print(f"  demo failed: {e}")
 
         # ---- validation
-        if val_loader is not None and val_every and step % val_every == 0:
+        # Skip on TPU for the canary: run_validation contains 4 `.item()`
+        # calls inside the per-batch loop plus boolean-indexing that
+        # produces dynamic shapes -- both trigger XLA cpu_fallback /
+        # recompile cascades. Validation works correctly on GPU; for a
+        # TPU canary the training loss curve is the signal we need.
+        # Re-enable once the validation loop is rewritten with
+        # accumulator tensors instead of .item() (mirroring patch 7).
+        if val_loader is not None and val_every and step % val_every == 0 and not is_tpu:
             if is_main:
                 print(f"  running validation at step {step}...")
-            val = run_validation(model, val_loader, device, num_codebooks,
-                                 depth_chunk, cfg["loss"], is_ddp=is_ddp)
+            val = run_validation(
+                model,
+                val_loader,
+                device,
+                num_codebooks,
+                depth_chunk,
+                cfg["loss"],
+                is_ddp=False,
+                backend=backend,
+            )
             if is_main:
-                print(f"  val/loss={val['val/loss']:.4f} cb0_acc={val['val/cb0_acc']*100:.1f}%")
+                print(f"  val/loss={val['val/loss']:.4f} cb0_acc={val['val/cb0_acc'] * 100:.1f}%")
             if use_wandb and is_main:
                 import wandb
+
                 log = {k: v for k, v in val.items() if k != "val/per_codebook_loss"}
                 for i, v in enumerate(val["val/per_codebook_loss"]):
                     log[f"val/per_codebook_loss_{i}"] = v
-                wandb.log(log, step=step)
-            if is_main and val["val/loss"] < best_val:
+                log["global_step"] = step
+                wandb.log(log)
+            if val["val/loss"] < best_val:
                 best_val = val["val/loss"]
                 best_dir = save_dir / "best_by_val"
-                if best_dir.exists():
+                if is_main and best_dir.exists():
                     import shutil
+
                     shutil.rmtree(best_dir)
-                save_checkpoint(unwrapped, optimizer, scheduler, step, str(best_dir),
-                                extra_state={"best_val_loss": best_val,
-                                             "config": cfg})
-                print(f"  * new best val — saved to {best_dir}")
-                if push_to_hub and hub_repo_id:
-                    try:
-                        push_checkpoint_to_hub(str(best_dir), hub_repo_id,
-                                               commit_message=f"best val {best_val:.4f} @ step {step}",
-                                               token=hub_token)
-                    except Exception as e:
-                        print(f"  hub push failed: {e}")
-            if is_ddp:
-                torch.distributed.barrier()
+                # Patch 16/17: save_checkpoint runs on ALL hosts so the
+                # SPMD .cpu() gather can complete; only is_main writes.
+                save_checkpoint(
+                    unwrapped,
+                    optimizer,
+                    scheduler,
+                    step,
+                    str(best_dir),
+                    extra_state={"best_val_loss": best_val, "config": cfg},
+                    is_main=is_main,
+                )
+                if is_main:
+                    print(f"  * new best val — saved to {best_dir}")
+                    if push_to_hub and hub_repo_id:
+                        try:
+                            push_checkpoint_to_hub(
+                                str(best_dir),
+                                hub_repo_id,
+                                commit_message=f"best val {best_val:.4f} @ step {step}",
+                                token=hub_token,
+                            )
+                        except Exception as e:
+                            print(f"  hub push failed: {e}")
+            backend.barrier()
 
         # ---- periodic save + prune
         if save_every and step % save_every == 0:
+            d = save_dir / f"step_{step:06d}"
+            # Patch 16/17: ALL hosts enter save_checkpoint to participate
+            # in the SPMD .cpu() gather; only host-0 actually writes.
+            save_checkpoint(
+                unwrapped,
+                optimizer,
+                scheduler,
+                step,
+                str(d),
+                extra_state={"config": cfg},
+                is_main=is_main,
+            )
             if is_main:
-                d = save_dir / f"step_{step:06d}"
-                save_checkpoint(unwrapped, optimizer, scheduler, step, str(d),
-                                extra_state={"config": cfg})
                 prune_checkpoints(str(save_dir), keep_last=5, keep_best="best_by_val")
                 if push_to_hub and hub_repo_id:
                     try:
-                        push_checkpoint_to_hub(str(d), hub_repo_id,
-                                               commit_message=f"step {step}",
-                                               token=hub_token)
+                        push_checkpoint_to_hub(
+                            str(d), hub_repo_id, commit_message=f"step {step}", token=hub_token
+                        )
                     except Exception as e:
                         print(f"  hub push failed: {e}")
-            if is_ddp:
-                torch.distributed.barrier()
+            backend.barrier()
 
-    # ---- final save
-    if is_main:
+    # ---- final save (multi-host SPMD-safe; see patch 16/17)
+    # patch 18b: respect save_every=0 escape hatch -- skip the final save
+    # if periodic saves were disabled. Iter 9+10 deadlocked all 4 hosts
+    # at save_checkpoint() despite patch 16/17 moving the .cpu() gather
+    # outside the is_main gate; root-cause is a deeper XLA<->PEFT
+    # interaction (likely safetensors serialization triggering an XLA
+    # collective inside PEFT.save_pretrained). For the canary we want
+    # to first validate that the training loop itself reaches step 200,
+    # so this gate stays even at the final-save site.
+    if save_every:
         d = save_dir / f"step_{step:06d}"
-        save_checkpoint(unwrapped, optimizer, scheduler, step, str(d),
-                        extra_state={"config": cfg, "final": True})
-        print(f"\nTraining complete: {step} steps in {(time.time()-t0)/60:.1f} min")
-        if push_to_hub and hub_repo_id:
+        save_checkpoint(
+            unwrapped,
+            optimizer,
+            scheduler,
+            step,
+            str(d),
+            extra_state={"config": cfg, "final": True},
+            is_main=is_main,
+        )
+
+    # patch 19: end-of-training canonical save (HF transformers issue
+    # #36004 fix). Opt-in via cfg.train.final_canonical_save. This
+    # bypasses the save_every gate -- with save_every=0 (patch 18a),
+    # this is the only chance to land a checkpoint in GCS. Destructive:
+    # model.to("cpu") loses FSDPv2 sharding metadata, so this only runs
+    # once at the very end of training. ALL hosts must reach this call;
+    # the SPMD gather inside .to("cpu") deadlocks if any host skips it.
+    if cfg["train"].get("final_canonical_save", False):
+        from src.training.checkpointing import save_checkpoint_canonical_final
+
+        d_final = save_dir / f"step_{step:06d}_final"
+        if is_main:
+            print(f"\n[patch 19] entering canonical final save -> {d_final}")
+        save_checkpoint_canonical_final(unwrapped, str(d_final), is_main=is_main)
+        if is_main:
+            print("[patch 19] canonical final save complete")
+    if is_main:
+        print(f"\nTraining complete: {step} steps in {(time.time() - t0) / 60:.1f} min")
+        if save_every and push_to_hub and hub_repo_id:
             try:
-                push_checkpoint_to_hub(str(d), hub_repo_id,
-                                       commit_message=f"final step {step}",
-                                       token=hub_token)
+                push_checkpoint_to_hub(
+                    str(d), hub_repo_id, commit_message=f"final step {step}", token=hub_token
+                )
             except Exception as e:
                 print(f"  hub push failed: {e}")
     if use_wandb and is_main:
         import wandb
+
         wandb.finish()
 
-    if is_ddp:
-        torch.distributed.barrier()
-        torch.distributed.destroy_process_group()
+    backend.barrier()
 
 
 if __name__ == "__main__":
