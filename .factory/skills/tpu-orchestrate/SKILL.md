@@ -11,11 +11,17 @@ You are the orchestrator for the TinyAya Stage 2 production training
 run on **single-host v6e-8** (`tinyaya-stage2-spot-v6e8-eu` in
 `europe-west4-a`, QR `tinyaya-stage2-spot-v6e8-eu-qr`).
 
-Current milestone: iter 24h has already completed the first 5000-step
-production run (W&B `7rrjupc7`, final checkpoint
-`gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot/step_005000_final/`).
-Use this skill for future cleanup, evaluation-adjacent reruns, or
-scale-up attempts, not to re-run iter 24h unless explicitly asked.
+Current milestone: iter 24h completed the first 5000-step baseline run
+(W&B `7rrjupc7`, final checkpoint
+`gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot/step_005000_final/`)
+and `opt-prod5k` completed the optimized 5000-step production run
+(W&B `kzsijxv5`, final checkpoint
+`gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/`).
+Phase 4 is now active; `opt-4-depth32` completed its 300-step gate as
+W&B `i15igq8d` with exit 0, p50 5.296 s/step, p99 5.725 s/step, and
+49.13 examples/sec. Use this skill for remaining Phase 4 candidates,
+evaluation-adjacent reruns, or scale-up attempts, not to re-run iter
+24h or `opt-prod5k` unless explicitly asked.
 
 For throughput work, run this skill in **optimization mode**. Read
 `.factory/orchestration/CONTROL_PLANE.md` first, then

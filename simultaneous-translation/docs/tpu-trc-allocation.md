@@ -1,14 +1,20 @@
 # TRC TPU allocation -- authoritative record
 
-## 2026-05-10 update
+## 2026-05-13 update
 
 Topology pivot: the **validated production path is now single-host TPU
 v6e-8 in
 `europe-west4-a`** (QR `tinyaya-stage2-spot-v6e8-eu-qr`, node
 `tinyaya-stage2-spot-v6e8-eu`, profile shorthand `v6e-8-eu` in
-`scripts/tpu/launch_spot.sh`). Iter 24h completed 5000/5000 steps on
-this profile and uploaded
+`scripts/tpu/launch_spot.sh`). Iter 24h completed 5000/5000 baseline
+steps on this profile and uploaded
 `gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot/step_005000_final/`.
+The optimized `opt-prod5k` run then completed 5000/5000 steps with
+checkpoint
+`gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/`.
+Phase 4 activation/depth sweeps now start from the same v6e-8 EU
+profile; `opt-4-depth32` completed its 300-step gate on this profile
+with exit 0.
 The v4-32 spot in `us-central2-b` ran iter 1-11 and is now legacy.
 The TRC allocation table below has not changed -- but the **selected
 zone / tier for daily operation** has pivoted to v6e-8 spot in
@@ -48,6 +54,8 @@ section now points here.
 
 The dual v4 lines in `us-central2-b` are independent quotas: 32 chips
 of on-demand AND 32 chips of spot in the same zone.
+`v6e-8-eu` is a smaller single-host slice requested against the v6e
+spot capacity in `europe-west4-a`; it is not a separate TRC grant row.
 
 ### Profile shorthands
 
@@ -56,7 +64,8 @@ values, each mapping to a single row above:
 
 | `TRC_PROFILE` | TPU type passed to `gcloud` | Zone | Notes |
 |---|---|---|---|
-| `v4-32-uc2b` (default) | `v4-32` | `us-central2-b` | Same zone as on-demand v4 quota; smallest blast-radius spot fallback. |
+| `v6e-8-eu` (current production profile) | `v6e-8` | `europe-west4-a` | Single-host 8-chip slice validated by iter 24h and `opt-prod5k`; fits external-IP quota and avoids multi-host rendezvous. |
+| `v4-32-uc2b` | `v4-32` | `us-central2-b` | Same zone as on-demand v4 quota; smallest legacy v4 fallback. |
 | `v5e-64-ew4b` | `v5litepod-64` | `europe-west4-b` | Largest v5e slice; matches v5litepod-* canary tuning. |
 | `v5e-64-uc1a` | `v5litepod-64` | `us-central1-a` | Same chip family as `v5e-64-ew4b`, US zone. |
 | `v6e-64-ew4a` | `v6e-64` | `europe-west4-a` | Newest gen; needs `v2-alpha-tpuv6e` runtime. |
@@ -103,13 +112,17 @@ Is the on-demand v4 quota in us-central2-b free right now?
           +-- "I want minimal infra change" .................. v4-32-uc2b (default)
           +-- "I want maximum throughput on v5e family" ...... v5e-64-ew4b
           +-- "I am US-based and want low latency" ........... v5e-64-uc1a OR v6e-64-ue1d
-          +-- "I want to test newest hardware" ............... v6e-64-ew4a OR v6e-64-ue1d
+          +-- "I want the validated production path" ......... v6e-8-eu
+          +-- "I want to test newest multi-host hardware" .... v6e-64-ew4a OR v6e-64-ue1d
           +-- "Probe / smoke test only, smallest cost" ....... v4-32-uc2b (still smallest in this grant)
 ```
 
-**Default for this repo:** `v4-32-uc2b`. It keeps the IAM, VPC,
-runtime image, and SPMD strategy identical to the on-demand path; the
-only knob that changes is `--spot`.
+**Operational default for this repo's active TPU work:** `v6e-8-eu`. It uses one
+host with eight chips, fits the current external-IP quota, and is the
+only profile that has completed both the iter 24h baseline and
+`opt-prod5k`. The script-level fallback default remains
+`v4-32-uc2b` for historical compatibility, but active production and
+optimization commands set `TRC_PROFILE=v6e-8-eu` explicitly.
 
 ## 4. Program requirements (we accepted these)
 

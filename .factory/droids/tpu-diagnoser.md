@@ -46,7 +46,9 @@ Match priority: top-to-bottom. First regex hit wins.
 | 10 | Same `classification` as previous iteration | `repeat` | `[]` (circuit breaker) | T4 |
 | 11 | Compilation count rising, no error, elapsed < 30 | `compile-normal` | `[]` (recommend continue) | T0 |
 | 12 | Compilation count rising, no error, elapsed > 60 | `compile-runaway` | `[{"file": "scripts/tpu/startup_script.sh", "kind": "add-env", "details": "XLA_IR_DEBUG=1 next iteration"}]` | T2 |
-| 13 | None of the above | `unknown` | `[]` (escalate) | T4 |
+| 13 | `could not read Username for 'https://github.com'` OR `Repository not found` | `git-auth` | `[{"file": "scripts/tpu/launch_spot.sh", "kind": "set-env", "details": "Pass REPO_TARBALL_GS_URI=gs://..."}]` | T2 |
+| 14 | `ImportError.*libpython3\.12\.so\.1\.0` | `libpython` | `[{"file": "scripts/tpu/_remote_redeploy.sh", "kind": "add-env", "details": "Export uv CPython lib dir in LD_LIBRARY_PATH"}]` | T2 |
+| 15 | None of the above | `unknown` | `[]` (escalate) | T4 |
 
 Optimization-only rows:
 
@@ -64,7 +66,7 @@ Return a SINGLE JSON object (no extra text, no markdown):
 
 ```json
 {
-  "classification": "xla-cache | scan-structure | fakeTensor | kwarg-bind | oom | compile-stall | t3-corruption | repeat | compile-normal | compile-runaway | late-recompile | throughput-regression | input-bound | warmup-drift | loss-regression | unknown",
+  "classification": "xla-cache | scan-structure | fakeTensor | kwarg-bind | oom | compile-stall | git-auth | libpython | t3-corruption | repeat | compile-normal | compile-runaway | late-recompile | throughput-regression | input-bound | warmup-drift | loss-regression | unknown",
   "matched_signature": "the exact regex/string that matched",
   "matched_table_row": 1,
   "recommended_patches": [
@@ -81,8 +83,8 @@ Return a SINGLE JSON object (no extra text, no markdown):
 
 1. Read the watchdog JSON from the prompt.
 2. Run the regexes (in table order) against `tmux_log_tail_50`.
-3. If optimization fields are present, apply rows 14-18 after crash
-   rows but before `unknown`.
+3. If optimization fields are present, apply optimization-regression
+   rows after crash/startup rows but before `unknown`.
 4. If `iteration > 1` AND `classification == previous_classification`, override to row 10 (`repeat` / T4).
 5. If topology-aware PID-dead pattern matches, prefer row 9 over row 6 (PID-dead is a stronger signal).
 6. Compute `confidence` from regex match strength (1.0 if exact, 0.5 if partial).

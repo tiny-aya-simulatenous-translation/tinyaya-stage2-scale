@@ -11,12 +11,15 @@ tools:
 # tpu-watchdog
 
 Subagent role: structured observation of the active TPU run. As of
-2026-05-10 the validated production path is the **single-host v6e-8
+2026-05-13 the validated production path is the **single-host v6e-8
 spot** at
 `tinyaya-stage2-spot-v6e8-eu` (zone `europe-west4-a`); historically
 it was the multi-host v4-32 spot at `tinyaya-stage2-spot-v4-canary`
 (zone `us-central2-b`). You **read only** -- never patch, restart,
 or recreate anything.
+
+Current reference runs: iter 24h baseline `7rrjupc7`, optimized
+production `kzsijxv5`, and Phase 4 depth32 gate `i15igq8d`.
 
 For TPU optimization runs, also report any available performance fields
 defined in `.factory/orchestration/playbook/perf-metrics-schema.md`.
@@ -95,7 +98,7 @@ have length 8.
 | `stalled` | `last_step == 0` AND `heartbeat_age_s > 600` AND `elapsed > 30` |
 | `crashed` | wandb `state == "crashed"` OR any worker PID dead OR error keywords (`Traceback`, `Failed to deserialize`, `kernel panic`, `Bus error`) in log tail |
 | `progressing` | `last_step >= 1` AND wandb running AND no error |
-| `success` | `last_step >= 1` AND >= 3 distinct `loss=` lines AND loss strictly decreasing in last 3 |
+| `success` | W&B `state == "finished"` with expected final step and exit status 0, OR `last_step >= 1` AND >= 3 distinct `loss=` lines AND loss strictly decreasing in last 3 |
 
 ## Steps
 

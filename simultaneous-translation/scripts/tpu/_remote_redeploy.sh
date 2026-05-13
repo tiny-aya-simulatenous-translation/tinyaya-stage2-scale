@@ -50,7 +50,27 @@ sudo tar -xzf "$TARBALL_LOCAL" -C "$REPO_DIR" --no-same-owner --overwrite
 sudo rm -f "$TARBALL_LOCAL"
 
 # 3. Resolve libpython for LD_LIBRARY_PATH.
-LIBPYTHON_DIR="$(dirname "$(sudo find /root/.local/share/uv/python -name 'libpython3.12.so.1.0' -type f 2>/dev/null | head -1)")"
+# TPU note: uv-installed CPython on v6e images places libpython3.12.so.1.0
+# under /root/.local/share/uv/python/..., but sudo find from a non-root
+# user may not traverse into /root. Use a broader search with 2>/dev/null
+# and fall back to the known cpython-3.12.13 path if find returns empty.
+_libpython="$(sudo find /root/.local/share/uv/python -name 'libpython3.12.so.1.0' -type f 2>/dev/null | head -1)"
+if [ -z "$_libpython" ]; then
+    # Fallback: try the known uv path directly.
+    for _dir in \
+        /root/.local/share/uv/python/cpython-3.12.*-linux-x86_64-gnu/lib \
+        /root/.local/share/uv/python/cpython-3.12.*/linux-x86_64-gnu/lib; do
+        if [ -f "$_dir/libpython3.12.so.1.0" ]; then
+            _libpython="$_dir/libpython3.12.so.1.0"
+            break
+        fi
+    done
+fi
+if [ -z "$_libpython" ]; then
+    echo "[remote] ERROR: libpython3.12.so.1.0 not found under uv Python roots"
+    exit 2
+fi
+LIBPYTHON_DIR="$(dirname "$_libpython")"
 echo "[remote] LIBPYTHON_DIR=$LIBPYTHON_DIR"
 
 # Persistent XLA compile cache: DISABLED.

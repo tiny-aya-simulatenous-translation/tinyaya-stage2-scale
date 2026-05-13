@@ -26,6 +26,353 @@ moved to `.factory/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-05-13T13:41:00Z | feat/tpu-support@34850b1 | done | verify
+Repository VERIFY passed after documentation and Phase 4 updates.
+
+All 20 `.factory/VERIFY.md` bash blocks passed on the workstation;
+TPU live probes were skipped because `PJRT_DEVICE` is unset.
+
+## 2026-05-13T13:38:00Z | feat/tpu-support@34850b1 | done | edit
+Updated TPU documentation for `opt-prod5k`, W&B `global_step`, Phase 4 configs, tarball startup, and `opt-4-depth32`.
+
+Docs touched include README, TPU runbooks, TRC/capacity logs,
+orchestration specs/playbooks, PLAN, memories, skills, and droid
+diagnosis docs. `opt-4-depth32` is recorded as a 300-step gate pass
+pending HBM review.
+
+## 2026-05-13T13:37:00Z | feat/tpu-support@34850b1 | done | exec
+`opt-4-depth32` watchdog showed successful completion.
+
+W&B `i15igq8d` finished at global_step=300 with exit 0. Metrics:
+p50=5.29617s, p90=5.39499s, p99=5.72485s, examples/sec=49.13236,
+frame_tokens/sec=19652.94239, final loss=6.65394
+(text=10.14188, audio=5.63975). No active training PID/tmux remained;
+QR was ACTIVE and TPU VM READY/HEALTHY.
+
+## 2026-05-13T13:36:52Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32` (`opt-4-depth32`, W&B `i15igq8d`, in progress).
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-13T13:36:52Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T13:21:09Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-13T13:21:08Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T13:20:35Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-13T13:20:34Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T13:16:30Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-13T13:16:30Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T13:11:22Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T12:58:23Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-13T12:58:23Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T12:39:59Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-13T12:39:58Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T12:22:22Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-13T12:22:22Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T12:11:06Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-13T12:11:05Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T12:00:05Z | feat/tpu-support@34850b1 | block | exec
+Phase 4 `opt-4-depth32` is blocked by v6e-8 spot capacity in europe-west4-a.
+
+QR `tinyaya-stage2-spot-v6e8-eu-qr` is FAILED with GCP error code 8:
+no capacity in `europe-west4-a`. TPU VM `tinyaya-stage2-spot-v6e8-eu`
+is absent, so no tmux session, PID, or active W&B run exists. Last
+attempt was W&B `g01wcazr` (`v6e-spot-stage2-opt4-depth32`) and did
+not reach the 300-step gate. Next retry will use a repo tarball via
+`REPO_TARBALL_GS_URI` so startup avoids private GitHub clone failure.
+
+## 2026-05-13T11:59:51Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-13T11:59:50Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T11:56:49Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T11:55:48Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-13T11:55:48Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T11:53:16Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-13T11:52:50Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-13T11:52:50Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-13T01:07:28Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-12T18:34:37Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-12T16:05:06Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-12T15:32:13Z | feat/tpu-support@34850b1 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/tpu/_remote_redeploy.sh`
+
+
+## 2026-05-12T15:14:29Z | feat/tpu-support@34850b1 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/tpu/launch_spot.sh`
+
+
+## 2026-05-12T15:14:24Z | feat/tpu-support@34850b1 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/tpu/launch_spot.sh`
+
+
+## 2026-05-12T15:11:31Z | feat/tpu-support@34850b1 | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot_opt_nockpt.yaml`
+
+
+## 2026-05-12T15:11:30Z | feat/tpu-support@34850b1 | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_spot_opt_depth32.yaml`
+
+
+## 2026-05-12T15:11:05Z | feat/tpu-support@34850b1 | info | session
+SessionEnd (other): 17 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=32`.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+
+
+## 2026-05-12T15:11:04Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-12T15:04:43Z | feat/tpu-support@34850b1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
 ## 2026-05-12T15:01:34Z | feat/tpu-support@045b7ff | done | edit
 edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.factory/memories.md`
 

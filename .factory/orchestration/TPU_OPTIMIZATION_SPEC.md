@@ -1,7 +1,7 @@
 # TPU Training Optimization Orchestration -- SPEC
 
-**Version:** v1 (2026-05-10)
-**Status:** Active planning baseline after iter 24h production success
+**Version:** v2 (2026-05-13)
+**Status:** Active after `opt-prod5k`; Phase 4 `depth32` 300-step gate passed
 **Branch:** `feat/tpu-support`
 **Control plane:** `CONTROL_PLANE.md`
 
@@ -21,6 +21,12 @@ Iter 24h remains the canonical fallback checkpoint and baseline:
 W&B `7rrjupc7`, final loss `5.3558`, wall `615.9 min`, final
 checkpoint
 `gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot/step_005000_final/`.
+The current optimized production checkpoint is `opt-prod5k`: W&B
+`kzsijxv5`, final loss `5.105`, p50 `6.14s`, p99 `6.76s`,
+examples/sec `43.04`, wall `562 min`, final checkpoint
+`gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/`.
+It combines Phases 1+2+3 and is the checkpoint to evaluate unless a
+later Phase 4 candidate passes promotion.
 
 ## 2. Baseline protected config
 
@@ -46,6 +52,29 @@ logging:
 Any optimization candidate must be compared against this baseline and
 must preserve the iter 24h safety constraints unless explicitly marked
 as an isolated high-risk probe.
+
+## 2.1 Current promoted optimization config
+
+```yaml
+train:
+  batch_size: 8
+  grad_accum: 4
+  compile_warmup_steps: 1
+  depth_chunk_size: 16
+  xla_grad_checkpoint: true
+data:
+  max_frames: 400
+logging:
+  log_every: 10
+  save_every: 0
+```
+
+Phase 3 closed with `b=16,g=2` rejected for a v6e bf16 reduce-scatter
+NaN at step 130; `b=32,g=1` is therefore unsafe. Phase 4 now tests
+activation/depth candidates against this promoted config. `opt-4-depth32`
+(`i15igq8d`) passed the 300-step stability/throughput gate; next are
+`xla_grad_checkpoint=false` and optional `depth_chunk_size=64` only if
+HBM remains safe.
 
 ## 3. Research basis
 
@@ -148,6 +177,10 @@ Candidate sequence:
 Promotion: W&B remains useful and p50 step time improves without losing
 failure visibility.
 
+Result: `log_every=10` was promoted; `log_every=25` had worse p99
+outliers. Future W&B charts use `global_step` as the metric x-axis so
+the dashboard shows training steps instead of log-event counts.
+
 ### Phase 2 -- Compile warmup before visible step 1
 
 Purpose: move optimizer-state and training-step compilation before the
@@ -166,6 +199,8 @@ Implementation outline:
 
 Promotion: visible `step 1` is steady-state, no warmup weight drift, and
 the 300-step loss curve matches baseline.
+
+Result: `compile_warmup_steps=1` was promoted into `opt-prod5k`.
 
 ### Phase 3 -- Batch/grad-accum sweep at fixed effective batch
 
@@ -191,6 +226,10 @@ Each candidate must pass:
 Promotion: lowest steady-state p50 step time among candidates that pass
 all gates.
 
+Result: `b=16,g=2` passed a 20-step smoke but failed the 300-step gate
+with NaN at step 130. `b=32,g=1` is rejected by implication. Keep
+`batch_size=8`, `grad_accum=4`.
+
 ### Phase 4 -- Activation and depth-chunk sweep
 
 Purpose: determine whether activation checkpoint recompute and depth
@@ -205,6 +244,13 @@ Candidate sequence:
 Promotion: throughput improves and HBM/loss gates pass. Keep
 `xla_grad_checkpoint=true` and `depth_chunk_size=16` if larger candidates
 regress or OOM.
+
+Current status: `opt-4-depth32` finished 300/300 steps as W&B
+`i15igq8d` with exit 0, p50 `5.296s`, p99 `5.725s`,
+examples/sec `49.13`, and final loss `6.6539`. No NaN/OOM/fatal log
+signatures were found. HBM telemetry was not captured by W&B, so
+durable promotion still requires memory review; otherwise proceed to
+`xla_grad_checkpoint=false`.
 
 ### Phase 5 -- Input pipeline and transfer profiling
 

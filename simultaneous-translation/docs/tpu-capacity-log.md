@@ -1,13 +1,17 @@
 # TPU capacity log -- observed queue times + autonomous fallback policy
 
-## 2026-05-10 update
+## 2026-05-13 update
 
 Production topology has pivoted to **single-host v6e-8 spot in
 `europe-west4-a`** (QR `tinyaya-stage2-spot-v6e8-eu-qr`, node
 `tinyaya-stage2-spot-v6e8-eu`, profile shorthand `v6e-8-eu`). Iter
-24h completed 5000/5000 production steps on this profile and uploaded
-the final canonical checkpoint. v4-32 spot in `us-central2-b` is now
-legacy. The fallback policy in section 1 below is preserved as the
+24h completed 5000/5000 baseline steps on this profile and uploaded
+the final canonical checkpoint; `opt-prod5k` then completed 5000/5000
+optimized steps with checkpoint
+`gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/`.
+Phase 4 now uses the same v6e-8 EU profile, with private-repo-safe
+startup via `REPO_TARBALL_GS_URI`. v4-32 spot in `us-central2-b` is
+now legacy. The fallback policy in section 1 below is preserved as the
 canonical autonomous decision tree for new capacity attempts, but
 day-to-day operation starts at the v6e-8 EU profile unless the user
 explicitly asks for another topology.
@@ -81,6 +85,8 @@ queued, it should follow this decision tree:
 | 2026-05-08 | -- | v4-32 spot (us-central2-b) | spot | hours | SUSPENDED | v4 spot pool reclaimed by other TRC users; QR has been SUSPENDED for several hours with no recovery. Pivoted away. |
 | 2026-05-08 | -- | v6e-8 spot (europe-west4-a) | spot | ~4:44 | ACTIVE | Single-host (8 chips), 32 GiB HBM/chip. ACTIVE within 5 min from QR submission. Iter 13b (run `zd42n7di`) reached 20 steps + canonical save in 23.3 min wall. |
 | 2026-05-09 | 15:25 | v6e-8 spot (europe-west4-a) | spot | ~3 min to ACTIVE | ACTIVE / COMPLETED | Iter 24h production retry. QR reached ACTIVE at 15:28 UTC; run `7rrjupc7` completed 5000/5000 steps at 2026-05-10T01:47:24Z and uploaded `step_005000_final` (8 objects, 2.37 GiB). |
+| 2026-05-13 | ~11:30 | v6e-8 spot (europe-west4-a) | spot | immediate preemptions / capacity retry | FAILED | Phase 4 `opt-4-depth32` first attempts hit spot preemption and then QR capacity error code 8. User chose to keep retrying same zone. |
+| 2026-05-13 | ~12:00 | v6e-8 spot (europe-west4-a) | spot | ~few min to ACTIVE | ACTIVE / COMPLETED | Relaunched Phase 4 with `REPO_TARBALL_GS_URI=gs://tinyaya-stage2-tpu/code/phase4-depth32-20260513T120005Z.tar.gz`; startup avoided private GitHub clone and W&B `i15igq8d` completed 300/300 steps with exit 0. |
 
 *(Update this table after every attempt.)*
 
@@ -91,7 +97,8 @@ Based on the limited data so far:
 | Profile | Expected wait | Confidence | Notes |
 |---|---|---|---|
 | v4-64 on-demand (uc2b) | 0-15 min | LOW (1 success, 1 pending) | Succeeds when no other TRC user in this zone has the on-demand quota occupied. |
-| v4-32 spot (uc2b) | 0-20 min, hour-by-hour | MEDIUM (1 fail at 09:23, 1 success at 13:42) | Spot pool clears on a sub-hour timescale. Cancel-and-retry within a few hours is a valid strategy. 4 hosts = 4 IPs, fits the 8-IP regional cap easily. |
+| v6e-8 spot (ew4a) | 0-10 min when capacity is available; retry after preemption/capacity code 8 | HIGH | Current validated production/optimization profile. One host = one external IP, fits quota, no multi-host rendezvous. |
+| v4-32 spot (uc2b) | 0-20 min, hour-by-hour | MEDIUM (1 fail at 09:23, 1 success at 13:42) | Legacy fallback. Spot pool clears on a sub-hour timescale. Cancel-and-retry within a few hours is a valid strategy. 4 hosts = 4 IPs, fits the 8-IP regional cap easily. |
 | v5e-64 spot (ew4b) | 2 min to PROVISIONING then FAILED | LOW (1 IP-quota fail) | Hits `IN_USE_ADDRESSES` regional quota (8) because 8-host slice needs 8 external IPs. Use `--internal-ips` (requires Private Google Access on subnet + GCS-mirrored dataset) or request IP quota bump. |
 | v5e-64 spot (uc1a) | unknown | NONE | Never tried. |
 | v6e-64 spot (ue1d) | 5 min PROVISIONING then FAILED | LOW (1 IP-quota fail) | Same root cause as v5e-64: 8-host slice + regional 8-IP cap. Code 13 ("internal error") instead of explicit IP-quota message, but identical failure pattern and timing. |

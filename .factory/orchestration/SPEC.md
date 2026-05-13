@@ -14,7 +14,7 @@ or optimization mode from `TPU_OPTIMIZATION_SPEC.md`.
 
 **Version:** v4 control-plane banner (2026-05-10)
 
-## 2026-05-10 update banner
+## 2026-05-13 update banner
 
 The original SPEC below describes the v4-32 spot canary in
 `us-central2-b` (4 hosts, 4 Python processes). Since 2026-05-08 the
@@ -33,6 +33,12 @@ Iter 24h validated this topology for production: 5000/5000 steps,
 W&B run `7rrjupc7`, final loss 5.3558, exit status 0, and canonical
 checkpoint
 `gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot/step_005000_final/`.
+`opt-prod5k` then validated the optimized production config:
+5000/5000 steps, W&B run `kzsijxv5`, final loss 5.105, p50 6.14
+s/step, p99 6.76 s/step, exit status 0, and checkpoint
+`gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/`.
+Phase 4 candidates should use the same bounded loop plus
+`REPO_TARBALL_GS_URI` for private-repo-safe fresh TPU startup.
 Future orchestrator use should treat "canary" language below as the
 same bounded self-healing loop applied to production cleanup and
 scale-up runs.

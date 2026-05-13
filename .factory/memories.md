@@ -22,6 +22,44 @@
 
 ## Architecture decisions
 
+### 2026-05-13: opt-4-depth32 passed 300-step Phase 4 gate
+
+**Decision:** `depth_chunk_size=32` is a viable Phase 4 candidate on
+the `opt-prod5k` base. W&B `i15igq8d` completed 300/300 steps with
+exit 0, p50=5.296s, p99=5.725s, examples/sec=49.13, and final
+loss=6.6539. No NaN/OOM/fatal signatures were found.
+
+**Gotcha:** W&B did not capture HBM telemetry for the run. Treat the
+300-step result as throughput/stability pass, but require memory review
+before making `depth_chunk_size=32` the durable production default.
+
+### 2026-05-13: Phase 4 v6e-8 startup uses a GCS repo tarball
+
+**Decision:** Fresh TPU VMs for private-repo runs should launch with
+`REPO_TARBALL_GS_URI=gs://...` instead of relying on a GitHub clone.
+Phase 4 `opt-4-depth32` used
+`gs://tinyaya-stage2-tpu/code/phase4-depth32-20260513T120005Z.tar.gz`
+after spot preemptions/capacity failures; the retry reached ACTIVE and
+started W&B `i15igq8d`.
+
+**Gotcha:** If the startup path falls back to GitHub on a fresh TPU VM,
+private clone auth can fail before training starts. Package the current
+branch with `tar --exclude-vcs --exclude='./_artifacts'` and upload it
+to `gs://tinyaya-stage2-tpu/code/`, then pass that URI to
+`launch_spot.sh`.
+
+### 2026-05-13: uv CPython libpython must be exported for hot redeploy
+
+**Decision:** `_remote_redeploy.sh` needs a robust fallback for
+`libpython3.12.so.1.0` because `torch_xla/_XLAC.so` may not find the
+uv-managed CPython shared library on TPU VMs. The redeploy script now
+discovers the uv CPython lib directory and prepends it to
+`LD_LIBRARY_PATH`.
+
+**Gotcha:** A bare `LIBPYTHON_DIR=.` or missing uv library path causes
+`ImportError: libpython3.12.so.1.0` before the TPU training process can
+import torch_xla.
+
 ### 2026-05-12: opt-prod5k 5000-step production pass completed
 
 **Decision:** The combined Phase 1+2+3 production config

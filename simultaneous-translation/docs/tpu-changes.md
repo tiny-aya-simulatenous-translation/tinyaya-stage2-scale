@@ -6,23 +6,32 @@ The launch-time and infrastructure narrative below was written when
 this branch first landed (Colab v5e-1, then v4-32 spot canary in
 `us-central2-b`). The production path has since pivoted to
 **single-host TPU v6e-8 in `europe-west4-a`** (QR
-`tinyaya-stage2-spot-v6e8-eu-qr`, config
-`configs/stage2_tpu_v6e_spot.yaml`). On v6e-8 there is exactly
+`tinyaya-stage2-spot-v6e8-eu-qr`, optimized production config
+`configs/stage2_tpu_v6e_spot_opt_prod5k.yaml`). On v6e-8 there is exactly
 ONE Python process (single-host SPMD) driving all 8 chips, so the
 multi-host coordination patches (host-index gating, wandb shared-
 mode rendezvous, GCS run-id polling) are inert; they remain in the
 codebase to support v4-32 (legacy) and v6e-64 (future scale-up).
 
-**Current production result:** iter 24h completed 5000/5000 steps
+**Current production result:** iter 24h first completed 5000/5000 steps
 on v6e-8 EU spot, W&B run
 [`7rrjupc7`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/7rrjupc7),
 final loss 5.3558, training wall 615.9 min, exit status 0. The final
 canonical checkpoint uploaded to
 `gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot/step_005000_final/`
-(8 objects, 2.37 GiB). No NaN/OOM/fatal signals were found. All
-sections below referring to "4 hosts", multi-host wandb, v4-32 zones,
-or canary-only status should be read as historical / multi-host
-topology context.
+(8 objects, 2.37 GiB). `opt-prod5k` then completed 5000/5000 steps
+with Phase 1+2+3 optimizations, W&B run
+[`kzsijxv5`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/kzsijxv5),
+final loss 5.105, p50 6.14 s/step, p99 6.76 s/step, training wall
+562 min, and checkpoint
+`gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/`.
+Phase 4 started with `opt-4-depth32`, W&B run
+[`i15igq8d`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/i15igq8d),
+which completed 300/300 steps with exit 0, p50 5.296 s/step, p99
+5.725 s/step, and final loss 6.6539.
+All sections below referring to "4 hosts", multi-host wandb, v4-32
+zones, or canary-only status should be read as historical /
+multi-host topology context.
 
 **Branch:** `feat/tpu-support`
 **Base repo:** `tinyaya-stage2-scale/simultaneous-translation`
@@ -30,7 +39,8 @@ topology context.
 v4-32 spot in `us-central2-b` (iter 7 reached step 100), v6e-8 spot
 in `europe-west4-a` (iter 13b reached step 20 + canonical save, iter
 17 reached 200-step bf16 canary, iter 24h completed 5000-step
-production).
+production, `opt-prod5k` completed optimized 5000-step production,
+and `opt-4-depth32` passed the Phase 4 300-step depth sweep gate).
 
 ---
 
@@ -70,6 +80,12 @@ The training pipeline was originally built for GPU with optional DDP (multi-GPU)
   bf16 `-inf` mask NaN.
 - Canonical final save stages to a local directory and uploads with
   `gsutil cp -r` when the target is `gs://...`.
+- W&B logging defines `global_step` as the x-axis for train/perf/val/
+  audio/memory metrics; W&B internal `_step` now counts log events
+  without distorting charts.
+- Startup can fetch a branch tarball from
+  `REPO_TARBALL_GS_URI=gs://...`, avoiding private GitHub clone
+  credentials on fresh TPU VMs.
 
 ---
 
@@ -510,21 +526,32 @@ The existing `save_checkpoint` / `load_checkpoint` functions already use `map_lo
 
 ## 7. TPU Config
 
-**File:** `configs/stage2_tpu.yaml`
+**Primary files:**
+
+- `configs/stage2_tpu_v6e_spot.yaml` -- validated iter 24h baseline.
+- `configs/stage2_tpu_v6e_spot_opt_prod5k.yaml` -- optimized
+  5000-step production config.
+- `configs/stage2_tpu_v6e_spot_opt_depth32.yaml` -- Phase 4
+  depth-chunk candidate.
+- `configs/stage2_tpu_v6e_spot_opt_nockpt.yaml` -- Phase 4
+  no-activation-checkpoint candidate.
 
 ```yaml
 backend: tpu
 
 train:
-  batch_size: 2
-  grad_accum: 2
+  batch_size: 8
+  grad_accum: 4
+  compile_warmup_steps: 1
+  depth_chunk_size: 16
+  xla_grad_checkpoint: true
   # Effective batch = batch_size * grad_accum * num_chips
-  # With 64 chips: 2 * 2 * 64 = 256
+  # With v6e-8: 8 * 4 * 8 = 256
 
 logging:
-  save_every: 500      # Frequent saves for spot preemption
-  keep_last_n: 3       # Prune old checkpoints
-  # For GCS: save_dir: gs://tinyaya-checkpoints/stage2-tpu
+  log_every: 10
+  save_every: 0        # Canonical end-of-training save only
+  keep_last_n: 3
 ```
 
 The key difference from the GPU config is the batch size calculation. On GPU, effective batch = `batch_size * grad_accum * num_gpus`. On TPU with SPMD, effective batch = `batch_size * grad_accum * num_chips` because SPMD automatically shards the batch across all chips via `mark_sharding`.
@@ -546,7 +573,19 @@ Tested on Colab TPU v5e-1 (single chip, 16GB HBM):
 | Backward pass | OK: gradients computed |
 | Optimizer step | OOM: expected on single 16GB chip with 5B model |
 
-The OOM on optimizer step is expected -- a 5B parameter model in bf16 is ~9.3GB, plus gradients and optimizer states exceeds 16GB. With FSDPv2 on 32-64 chips, each chip holds <1GB of model params.
+The OOM on optimizer step is expected -- a 5B parameter model in bf16
+is ~9.3GB, plus gradients and optimizer states exceeds 16GB. With
+FSDPv2 on 8-64 chips, model parameters are sharded across the TPU mesh;
+the v6e-8 production path has now completed multiple 5000-step runs.
+
+Validated Cloud TPU runs:
+
+| Run | Topology | Steps | Result |
+|---|---|---:|---|
+| `8pse8tzk` | v4-32 spot | 100 | First end-to-end TPU success; loss decreased 9.0273 -> 7.5983. |
+| `7rrjupc7` | v6e-8 spot | 5000 | Iter 24h baseline; final loss 5.3558, wall 615.9 min. |
+| `kzsijxv5` | v6e-8 spot | 5000 | Optimized `opt-prod5k`; final loss 5.105, p50 6.14 s/step, wall 562 min. |
+| `i15igq8d` | v6e-8 spot | 300 | Phase 4 `depth_chunk_size=32` candidate; exit 0, p50 5.296 s/step, p99 5.725 s/step, examples/sec 49.13. |
 
 ### Environment variables for Colab TPU
 
@@ -569,11 +608,20 @@ On real Cloud TPU VMs, these are set automatically by the GCE metadata service.
 
 ## 9. Known Limitations
 
-1. **Multi-chip FSDPv2 untested.** The `auto_wrap_policy` for keeping embeddings unsharded has been implemented but not verified on a multi-chip setup. The policy may need tuning based on actual layer names.
+1. **Large TPU pods remain unvalidated.** Single-host v6e-8 SPMD is
+   validated; v6e-64 / v5e-64 multi-host pods are still blocked by
+   capacity and external-IP quota constraints.
 
-2. **No GCS async checkpointing yet.** The spec mentions `CheckpointManager` for non-blocking GCS saves, but the current implementation uses synchronous `xm.save()`. For real spot training, async saves would avoid blocking the training loop.
+2. **No GCS async checkpointing yet.** The current production path uses
+   synchronous canonical final saves and disables periodic production
+   saves (`save_every=0`). Async saves would still be useful for longer
+   spot runs.
 
-3. **Depth decoder gradient checkpointing disabled on TPU.** The `_checkpoint` fallback calls the function directly (no memory savings from checkpointing). For large batch sizes on TPU, this may increase HBM usage. The backbone's checkpointing (via `gradient_checkpointing_enable()`) still works.
+3. **Phase 4 activation settings are still under test.** Production
+   keeps `xla_grad_checkpoint=true` and `depth_chunk_size=16`;
+   `depth_chunk_size=32` passed a 300-step gate but still needs HBM
+   review before durable promotion, and `xla_grad_checkpoint=false`
+   remains untested.
 
 4. **Mimi decoder on CPU for TPU training.** Audio monitoring samples are decoded on CPU (~10s per sample). This is acceptable for periodic monitoring (every 1000 steps) but would be too slow for batch evaluation.
 
@@ -587,8 +635,10 @@ On real Cloud TPU VMs, these are set automatically by the GCE metadata service.
 | `src/backend/base.py` | **NEW** -- abstract base class | 71 |
 | `src/backend/gpu_backend.py` | **NEW** -- GPU/DDP implementation | 90 |
 | `src/backend/tpu_backend.py` | **NEW** -- TPU/SPMD+FSDPv2 | 136 |
-| `configs/stage2_tpu.yaml` | **NEW** -- TPU training config | 46 |
+| `configs/stage2_tpu*.yaml` | **NEW/MODIFIED** -- baseline, optimized production, and Phase 4 TPU configs | n/a |
 | `src/model/backbone.py` | **MODIFIED** -- added `use_cache=False` | +3 |
 | `src/model/composite.py` | **MODIFIED** -- XLA-compatible checkpointing | +12 -1 |
 | `src/training/checkpointing.py` | **MODIFIED** -- GCS support + find_latest | +43 |
-| `scripts/train_hierarchical.py` | **MODIFIED** -- backend abstraction | +81 -51 |
+| `scripts/train_hierarchical.py` | **MODIFIED** -- backend abstraction + W&B `global_step` x-axis | +81 -51 |
+| `scripts/tpu/startup_script.sh` | **MODIFIED** -- GCS repo tarball startup path | n/a |
+| `scripts/tpu/_remote_redeploy.sh` | **MODIFIED** -- uv CPython `libpython` fallback for hot redeploy | n/a |

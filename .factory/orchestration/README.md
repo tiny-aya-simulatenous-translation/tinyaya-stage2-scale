@@ -9,15 +9,28 @@ The folder now also owns the TPU optimization control plane: how
 optimization phases, skills, hooks, droids, memories, and transient
 artifacts work together without duplicating state.
 
-## 2026-05-10 status
+## 2026-05-13 status
 
-The orchestrator has now driven the v6e-8 path through the first full
-Phase 5 production run: iter 24h reached 5000/5000 steps on
-`tinyaya-stage2-spot-v6e8-eu`, exited with status 0, and uploaded the
-canonical checkpoint to
-`gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot/step_005000_final/`.
-The same playbook remains active for future cleanup, evaluation
-follow-ups, and v6e-64 scale-up attempts.
+The orchestrator has now driven the v6e-8 path through two full
+5000-step production runs:
+
+- iter 24h baseline: W&B
+  [`7rrjupc7`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/7rrjupc7),
+  final checkpoint
+  `gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot/step_005000_final/`.
+- `opt-prod5k`: W&B
+  [`kzsijxv5`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/kzsijxv5),
+  final loss 5.105, p50 6.14 s/step, p99 6.76 s/step, final
+  checkpoint
+  `gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/`.
+
+Phase 4 activation/depth-chunk work has started on the same
+single-host v6e-8 EU profile. `opt-4-depth32` (W&B
+[`i15igq8d`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/i15igq8d))
+completed its 300-step gate with exit 0, p50 5.296 s/step, p99
+5.725 s/step, and 49.13 examples/sec. The playbook remains active for
+the remaining Phase 4 candidates, evaluation follow-ups, and v6e-64
+scale-up attempts.
 
 The active optimization plan is tracked in
 `TPU_OPTIMIZATION_SPEC.md`; cross-file responsibilities are defined in

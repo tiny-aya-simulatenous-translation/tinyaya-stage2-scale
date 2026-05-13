@@ -207,24 +207,29 @@ bash .factory/skills/verify/SKILL.md   # or: /verify (slash command)
 
 ```bash
 # v6e-8 spot in europe-west4-a (current validated production topology)
+# For private repos, upload a tarball first and pass REPO_TARBALL_GS_URI
+# so TPU startup does not need GitHub credentials.
 TRC_PROFILE=v6e-8-eu \
 QR_NAME=tinyaya-stage2-spot-v6e8-eu-qr \
 NODE_ID=tinyaya-stage2-spot-v6e8-eu \
-CONFIG_FILE=configs/stage2_tpu_v6e_spot.yaml \
+CONFIG_FILE=configs/stage2_tpu_v6e_spot_opt_prod5k.yaml \
+REPO_TARBALL_GS_URI=gs://tinyaya-stage2-tpu/code/<repo-tarball>.tar.gz \
 TPU_STRATEGY=fsdpv2_lora \
-PROBE_FIRST=1 \
+PROBE_FIRST=0 \
   bash simultaneous-translation/scripts/tpu/launch_spot.sh
 ```
 
 The launch script creates the queued resource, attaches the startup
-script (which clones from GCS, extracts the encoded dataset, and
-starts training under tmux), and watches the run's first hour.
+script (which fetches a repo tarball from GCS when
+`REPO_TARBALL_GS_URI` is set, extracts the encoded dataset, and starts
+training under tmux), and watches the run's first hour.
 
 The legacy v4-32 spot path in `us-central2-b`
 (`TRC_PROFILE=v4-32-uc2b`,
 `CONFIG_FILE=configs/stage2_tpu_canary_v4_spot.yaml`) is still
 supported but historical -- it ran iter 1-11 before the v6e-8 path
-completed the 5000-step iter 24h production run.
+completed the iter 24h baseline and the optimized `opt-prod5k`
+production run.
 
 ---
 
@@ -473,10 +478,19 @@ keys, PEM private keys) — see `.factory/hooks/_lib.py`.
 Configs live in `simultaneous-translation/configs/`. The ones you
 will touch most:
 
-- `stage2_tpu_v6e_spot.yaml` — production v6e-8 spot config
-  (CURRENT, validated by iter 24h). `max_steps=5000`, `save_every=0`
+- `stage2_tpu_v6e_spot.yaml` — baseline v6e-8 spot config
+  (validated by iter 24h). `max_steps=5000`, `save_every=0`
   (canonical end-of-training save only), effective batch 256 =
   8 × 4 × 8.
+- `stage2_tpu_v6e_spot_opt_prod5k.yaml` — optimized production config
+  validated by `opt-prod5k` (W&B `kzsijxv5`). It combines
+  `log_every=10`, `compile_warmup_steps=1`, `batch_size=8`,
+  `grad_accum=4`, `depth_chunk_size=16`, and
+  `xla_grad_checkpoint=true`.
+- `stage2_tpu_v6e_spot_opt_depth32.yaml` — Phase 4 candidate testing
+  `depth_chunk_size=32` for a 300-step gate.
+- `stage2_tpu_v6e_spot_opt_nockpt.yaml` — Phase 4 candidate testing
+  `xla_grad_checkpoint=false` for a 300-step gate.
 - `stage2_tpu_canary_v4_spot.yaml` — legacy canary on v4-32 spot.
   `max_steps=200`, `save_every=100` (preempt-resilient),
   effective batch 64 = 2 × 2 × 16.
@@ -492,9 +506,12 @@ where it is. Notable knobs:
 | `train.batch_size`            | 8 (v6e prod) / 2 (legacy canary) | Per-chip batch. v6e/v4 have ~32 GiB/chip; v5e has 16. |
 | `train.grad_accum`            | 4 (v6e prod) / 2 (legacy canary) | Effective_batch = batch × accum × num_chips. |
 | `train.use_scan_layers`       | false   | Disabled — `_ensure_same_structure` rejects LoRA[0:33]+FullFT[34:35] split (pytorch/xla #8612). |
-| `train.xla_grad_checkpoint`   | false   | Disabled — patch 11 (fixed-shape padding) made it unnecessary. |
-| `data.max_frames`             | 300     | Patch 11: collator pads every batch to this; XLA compiles one HLO. |
-| `logging.save_every`          | 100     | Spot-tuned; on-demand path uses 500. |
+| `train.xla_grad_checkpoint`   | true (v6e prod) | Keeps activation HBM low; Phase 4 tests `false` only behind a 300-step gate. |
+| `train.depth_chunk_size`      | 16 (prod), 32 (Phase 4 candidate) | Larger chunks may reduce loop overhead but increase activation memory. |
+| `train.compile_warmup_steps`  | 1 (optimized prod) | Zero-LR macro-step before visible training to precompile optimizer-state graphs. |
+| `data.max_frames`             | 400     | Collator pads every TPU batch to this static frame length. |
+| `logging.log_every`           | 10 (optimized prod) | Reduces host materialization overhead while preserving monitoring. |
+| `logging.save_every`          | 0       | Production uses canonical end-of-training save only. |
 
 Required environment variables (TPU runtime):
 
@@ -574,6 +591,31 @@ Empirical (iter 24h on v6e-8 spot EU, batch 8 x accum 4 x 8 chips, **production*
 - No NaN, OOM, RESOURCE_EXHAUSTED, fatal, traceback, bus-error, or
   kernel-panic signals
 
+Empirical (`opt-prod5k` on v6e-8 spot EU, **optimized production**):
+
+- 5000/5000 steps in 562 min wall (run
+  [`kzsijxv5`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/kzsijxv5))
+- Config: `log_every=10`, `compile_warmup_steps=1`, `batch_size=8`,
+  `grad_accum=4`, `depth_chunk_size=16`, `xla_grad_checkpoint=true`
+- p50/p90/p99 step time: 6.14 s / 6.18 s / 6.76 s
+- examples/sec: 43.04; frame-tokens/sec: 17,215
+- Final loss 5.105 (`text=9.990`, `audio=4.106`)
+- Final canonical checkpoint uploaded to
+  `gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/`
+- 11.8% faster p50 step time and 4.7% lower loss than iter 24h
+
+Empirical (`opt-4-depth32` on v6e-8 spot EU, **Phase 4 300-step gate**):
+
+- Run [`i15igq8d`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/i15igq8d)
+  completed 300/300 steps with exit status 0.
+- Config: `depth_chunk_size=32` on top of the `opt-prod5k` settings.
+- Training wall 79.2 min; p50/p90/p99 step time:
+  5.296 s / 5.395 s / 5.725 s.
+- examples/sec: 49.13; frame-tokens/sec: 19,653.
+- Final 300-step loss 6.6539 (`text=10.1419`, `audio=5.6398`).
+- No NaN/OOM/fatal signatures in the log tail. HBM telemetry was not
+  captured by W&B, so promotion still needs the normal memory review.
+
 ---
 
 ## Troubleshooting
@@ -595,6 +637,9 @@ Empirical (iter 24h on v6e-8 spot EU, batch 8 x accum 4 x 8 chips, **production*
 | NaN or OOM at step 258/259 | Grad-accum macro-step straddles a DataLoader epoch reset, producing a new XLA graph topology | Iter 24h fix -- pad TPU tail batches to `batch_size`, keep `drop_last=False`, and reset epochs only between optimizer steps |
 | Step 1/2 show 1000s+ wall time | Optimizer-state graph compiles after first visible step | Expected in iter 24h; no late recompiles after step 2. Future cleanup should pre-warm before visible `step 1` |
 | Canonical save writes to `gs:/checkpoints/...` instead of GCS | `torch.save` does not understand `gs://` URIs | Apply patch 20a -- `save_checkpoint_canonical_final` runs `gsutil cp -r` post-save to upload to the actual GCS prefix |
+| Private GitHub clone fails in `startup_script.sh` | Fresh TPU VM has no GitHub credentials | Upload a repo tarball to GCS and pass `REPO_TARBALL_GS_URI=gs://...` at launch. |
+| `ImportError: libpython3.12.so.1.0` | torch_xla `_XLAC.so` cannot find uv-managed CPython's shared library | Use `_remote_redeploy.sh` / startup libpython fallback, which resolves the uv CPython lib directory. |
+| W&B charts show 0..499 for a 5000-step run | W&B shared mode ignores `wandb.log(data, step=N)` | Use `global_step` + `wandb.define_metric(..., step_metric="global_step")`; past runs retain the old internal counter. |
 
 For deeper diagnosis, attach py-spy to the *real* python PID (not the
 `uv run` parent) and inspect both Python and native frames:
@@ -622,6 +667,22 @@ sudo /tmp/py_spy-0.4.2.data/scripts/py-spy dump --pid <REAL_PID> --native
 This validates the iter 24h step-259 topology fix: TPU tail batches
 are padded to a static batch dimension and epoch resets happen only
 between optimizer steps, not inside the 4-way grad-accum graph.
+
+### 2026-05-12 — Optimized 5000-step TPU production run (`opt-prod5k`)
+
+- **Run:** [`kzsijxv5`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/kzsijxv5)
+- **Hardware:** TPU v6e-8 spot, europe-west4-a, single host x 8 chips
+- **Steps:** 5000/5000
+- **Wall time:** 562 min
+- **Throughput:** p50 6.14 s/step, p99 6.76 s/step, 43.04 examples/sec
+- **Final loss:** 5.105 (`text=9.990`, `audio=4.106`)
+- **Checkpoint:** `gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/`
+- **Config:** Phase 1 `log_every=10`, Phase 2
+  `compile_warmup_steps=1`, Phase 3 stable topology `batch_size=8`,
+  `grad_accum=4`
+
+This is the current optimized production checkpoint pending
+`eval_stage2.py` ASR-BLEU + DNSMOS.
 
 ### 2026-05-08 — Patch 19 canonical save validated on v6e-8 (iter 13b)
 
@@ -665,10 +726,13 @@ spot capacity ran out).
   prefix.
 - [x] Phase 5: complete 5000-step production run on v6e-8 EU
   (iter 24h).
-- [ ] `eval_stage2.py` ASR-BLEU + DNSMOS on the iter 24h final
+- [x] Complete optimized 5000-step production run (`opt-prod5k`) with
+  log cadence + compile warmup + stable b=8/g=4 topology.
+- [ ] `eval_stage2.py` ASR-BLEU + DNSMOS on the `opt-prod5k` final
   checkpoint.
-- [ ] Cleanup: pre-warm optimizer-state compilation before visible
-  `step 1`.
+- [ ] Complete Phase 4 activation/depth-chunk sweep
+  (`opt-4-depth32` passed 300 steps; `opt-4-no-ckpt` and optional
+  `opt-4-depth64` remain).
 - [ ] Scale to v6e-64 multi-host pod once spot capacity allows.
 - [ ] Decide on patches 12-13 (skip audio sample + validation on TPU).
 - [ ] Re-evaluate `xla_grad_checkpoint=true` to free HBM for
@@ -702,7 +766,7 @@ If you use TinyAya Stage 2 in a paper, please cite:
 @misc{tinyaya2026,
   title  = {TinyAya: Simultaneous Turkish-Hindi Speech Translation
             via Composite LoRA-Backbone + Frozen Depth Decoder},
-  author = {Mayank Bhaskar et al.},
+  author = {tbd et al.},
   year   = {2026},
   note   = {Repository: tinyaya-stage2-scale}
 }

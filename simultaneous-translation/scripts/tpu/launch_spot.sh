@@ -11,6 +11,7 @@
 #
 # Usage:
 #   TRC_PROFILE=v4-32-uc2b   bash scripts/tpu/launch_spot.sh   # default
+#   TRC_PROFILE=v6e-8-eu     bash scripts/tpu/launch_spot.sh   # current production
 #   TRC_PROFILE=v5e-64-ew4b  bash scripts/tpu/launch_spot.sh
 #   TRC_PROFILE=v6e-64-ew4a  bash scripts/tpu/launch_spot.sh
 #
@@ -19,7 +20,8 @@
 # pinned to 1 because that is the whole point of this wrapper.
 #
 # TRC_PROFILE legend (verbatim from docs/tpu-trc-allocation.md):
-#   v4-32-uc2b   -> 32 chips spot v4   in us-central2-b   (default)
+#   v6e-8-eu     -> 8 chips spot v6e   in europe-west4-a  (current production)
+#   v4-32-uc2b   -> 32 chips spot v4   in us-central2-b   (legacy default)
 #   v5e-64-ew4b  -> 64 chips spot v5e  in europe-west4-b
 #   v5e-64-uc1a  -> 64 chips spot v5e  in us-central1-a
 #   v6e-64-ew4a  -> 64 chips spot v6e  in europe-west4-a
@@ -63,6 +65,13 @@ case "$TRC_PROFILE" in
         DEFAULT_QR="tinyaya-stage2-spot-v6e-ew4-qr"
         DEFAULT_NODE="tinyaya-stage2-spot-v6e-ew4"
         ;;
+    v6e-8-eu)
+        ACCEL_TYPE="${ACCEL_TYPE:-v6e-8}"
+        ZONE="${ZONE:-europe-west4-a}"
+        RUNTIME="${RUNTIME:-v2-alpha-tpuv6e}"
+        DEFAULT_QR="tinyaya-stage2-spot-v6e8-eu-qr"
+        DEFAULT_NODE="tinyaya-stage2-spot-v6e8-eu"
+        ;;
     v6e-64-ue1d)
         ACCEL_TYPE="${ACCEL_TYPE:-v6e-64}"
         ZONE="${ZONE:-us-east1-d}"
@@ -72,7 +81,7 @@ case "$TRC_PROFILE" in
         ;;
     *)
         echo "ERROR: unknown TRC_PROFILE '$TRC_PROFILE'" >&2
-        echo "Valid profiles: v4-32-uc2b v5e-64-ew4b v5e-64-uc1a v6e-64-ew4a v6e-64-ue1d" >&2
+        echo "Valid profiles: v4-32-uc2b v5e-64-ew4b v5e-64-uc1a v6e-8-eu v6e-64-ew4a v6e-64-ue1d" >&2
         echo "See docs/tpu-trc-allocation.md for the source of truth." >&2
         exit 2
         ;;

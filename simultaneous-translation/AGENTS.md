@@ -73,8 +73,16 @@ torch_xla >= 2.6 and silently no-op. Use the explicit
 - `configs/stage2_scale.yaml` — full Stage 2 production config.
 - `configs/stage2_tpu.yaml` — TPU full run (5000 steps).
 - `configs/stage2_tpu_canary.yaml` — historical short canary config.
-- `configs/stage2_tpu_v6e_spot.yaml` — current production v6e-8
-  config validated by iter 24h (5000/5000 steps).
+- `configs/stage2_tpu_v6e_spot.yaml` — baseline v6e-8 config
+  validated by iter 24h (5000/5000 steps).
+- `configs/stage2_tpu_v6e_spot_opt_prod5k.yaml` — optimized
+  production v6e-8 config validated by `opt-prod5k` (5000/5000
+  steps).
+- `configs/stage2_tpu_v6e_spot_opt_depth32.yaml` — Phase 4
+  `depth_chunk_size=32` candidate, passed 300/300 steps as W&B
+  `i15igq8d`.
+- `configs/stage2_tpu_v6e_spot_opt_nockpt.yaml` — Phase 4
+  `xla_grad_checkpoint=false` candidate.
 
 ## Per-chip memory budget
 

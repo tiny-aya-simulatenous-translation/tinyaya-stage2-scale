@@ -4,6 +4,9 @@ Baseline for `TPU_OPTIMIZATION_SPEC.md` Phase 0. Source is W&B run
 `7rrjupc7` plus the iter 24h completion log captured in
 `.factory/PROGRESS.md`.
 
+`opt-prod5k` is now the promoted production reference for later phases,
+but iter 24h remains the protected fallback and comparison baseline.
+
 ## Identity
 
 | Field | Value |
@@ -82,3 +85,26 @@ around `22.67 GiB` under `batch_size=16`, grad checkpointing, and
 Use iter 24h as the fallback until a candidate beats steady p50 step
 time `6.7476 s` or examples/sec `37.94` without violating compile,
 memory, stability, or quality gates.
+
+## Promoted production reference: `opt-prod5k`
+
+| Field | Value |
+|---|---|
+| Run name | `v6e-spot-stage2-opt-prod5k` |
+| W&B run | `kzsijxv5` |
+| W&B URL | https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/kzsijxv5 |
+| Config | `log_every=10`, `compile_warmup_steps=1`, `batch_size=8`, `grad_accum=4`, `depth_chunk_size=16`, `xla_grad_checkpoint=true` |
+| Steps | `5000/5000` |
+| Wall | `562 min` |
+| p50 / p99 step time | `6.14 s` / `6.76 s` |
+| Examples/sec | `43.04` |
+| Final loss | `5.105` (`text=9.990`, `audio=4.106`) |
+| Final checkpoint | `gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/` |
+
+Use `opt-prod5k` as the Phase 4 comparison point unless a candidate
+needs to prove it also beats the original iter 24h fallback.
+
+Latest Phase 4 comparison: `opt-4-depth32` (W&B `i15igq8d`) completed
+300/300 steps with p50 `5.296 s`, p99 `5.725 s`, examples/sec `49.13`,
+and final loss `6.6539`. HBM telemetry still needs review before
+durable promotion.

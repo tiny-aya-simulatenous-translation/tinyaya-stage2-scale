@@ -12,6 +12,7 @@ and optimization reports.
 | `opt/phase` | int | Optimization phase number. |
 | `opt/config_diff` | string | Compact human-readable config diff. |
 | `opt/promotion_gate` | string | Gate currently being tested: `20`, `300`, `1000`, `5000`, `eval`. |
+| `global_step` | int | Real optimizer step. Hidden W&B step metric used as the x-axis for `train/*`, `perf/*`, `val/*`, `audio/*`, and `mem/*`. |
 
 ## Throughput metrics
 
@@ -66,6 +67,18 @@ Use this one-line shape in `PROGRESS.md` details:
 
 ```text
 candidate=<id> base=iter24h run=<wandb-id> steps=<n> verdict=<verdict> p50=<s>s eps=<n> hbm=<n>GiB compile_delta=<n>
+```
+
+Current promoted production reference:
+
+```text
+candidate=opt-prod5k base=iter24h run=kzsijxv5 steps=5000 verdict=promote p50=6.14s p99=6.76s eps=43.04 hbm=n/a compile_delta=0 checkpoint=gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/
+```
+
+Latest Phase 4 gate:
+
+```text
+candidate=opt-4-depth32 base=opt-prod5k run=i15igq8d steps=300 verdict=pass p50=5.296s p99=5.725s eps=49.13 hbm=n/a compile_delta=n/a
 ```
 
 ## Promotion verdicts

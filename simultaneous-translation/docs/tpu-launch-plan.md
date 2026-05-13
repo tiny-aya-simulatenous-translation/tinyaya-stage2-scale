@@ -1,14 +1,14 @@
 # TPU v4 Launch Plan — Stage 2 TR↔HI
 
-## 2026-05-10 update
+## 2026-05-13 update
 
 The historical narrative below assumes TPU v4-64 / v4-32 in
 `us-central2-b` as the launch target. The validated production
 topology has since pivoted to **single-host TPU v6e-8 spot in
 `europe-west4-a`**
 (QR `tinyaya-stage2-spot-v6e8-eu-qr`, node
-`tinyaya-stage2-spot-v6e8-eu`, config
-`configs/stage2_tpu_v6e_spot.yaml`, profile shorthand
+`tinyaya-stage2-spot-v6e8-eu`, optimized production config
+`configs/stage2_tpu_v6e_spot_opt_prod5k.yaml`, profile shorthand
 `v6e-8-eu`). On v6e-8 there is exactly one host with 8 chips and
 ONE Python process driving them via SPMD -- no multi-host
 coordination required. Iter 24h completed the first 5000-step
@@ -17,8 +17,19 @@ production run on this topology: W&B run
 5000/5000 steps in 615.9 min, final loss 5.3558, exit status 0, and
 canonical checkpoint
 `gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot/step_005000_final/`
-(8 objects, 2.37 GiB). v4-32 spot is legacy and v6e-64 in
-`europe-west4-a` is the next multi-host scale-up target. **Sections
+(8 objects, 2.37 GiB). `opt-prod5k` then completed the optimized
+5000-step production pass: W&B
+[`kzsijxv5`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/kzsijxv5),
+final loss 5.105, p50 6.14 s/step, p99 6.76 s/step, wall 562 min,
+checkpoint
+`gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/`.
+Phase 4 started with `opt-4-depth32` (W&B
+[`i15igq8d`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/i15igq8d),
+300/300 steps, exit 0, p50 5.296 s/step, p99 5.725 s/step)
+using the GCS repo tarball startup path (`REPO_TARBALL_GS_URI`) to
+avoid private GitHub clone credentials on fresh TPU VMs. v4-32 spot is
+legacy and v6e-64 in `europe-west4-a` is the next multi-host scale-up
+target. **Sections
 below referring to a v4-64 4-host topology, the v4-32 spot fallback,
 or `us-central2-b`-specific behaviour are historical** and preserved
 for the planning context that produced the launch infrastructure.

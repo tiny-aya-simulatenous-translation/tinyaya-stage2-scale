@@ -67,6 +67,13 @@ preserving stability, checkpoint safety, and evaluation quality.
   step time vs iter24h baseline, 4.7% lower loss.
   W&B: https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/kzsijxv5
   GCS: gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/
+- **Phase 4 result:** `opt-4-depth32` launched on v6e-8 EU with a
+  GCS repo tarball startup path after spot preemption/capacity retries,
+  then completed 300/300 steps with exit 0. W&B `i15igq8d`:
+  https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/i15igq8d.
+  Final metrics: p50=5.296s, p99=5.725s, examples/sec=49.13,
+  loss=6.6539. No NaN/OOM/fatal log signatures; HBM telemetry still
+  needs review before durable promotion.
 
 ## Definition of Done
 
@@ -128,7 +135,7 @@ on v6e-8.**
 ### Phase 4 — Activation and depth-chunk sweep
 
 - [ ] Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
-- [ ] Test `depth_chunk_size=32`.
+- [x] Test `depth_chunk_size=32` (`opt-4-depth32`, W&B `i15igq8d`, passed 300-step gate).
 - [ ] Test `depth_chunk_size=64` only if HBM remains safe.
 - [ ] Keep iter 24h defaults if larger candidates regress or OOM.
 

@@ -20,12 +20,14 @@ Match priority: top-to-bottom. First regex hit wins.
 | 11 | User selects "Abort+Diag" or "Pause" at check-in | User decision | ESCALATE | T4 | -- |
 | 12 | `compilation_cause_count` rising AND no error AND elapsed < 30 min | Normal compile (sharding distribution) | Recommend "continue" at check-in | T0 | our prior runs + #8612 |
 | 13 | `compilation_cause_count` rising AND no error AND elapsed > 60 min | Possibly dynamic shapes (recompiles per step) | Recommend "abort+diag" at check-in; offer `XLA_IR_DEBUG=1` next iter | T2 | PT/XLA debug docs |
+| 14 | `could not read Username for 'https://github.com'` OR `Repository not found` | Fresh TPU VM lacks private GitHub credentials | Relaunch with `REPO_TARBALL_GS_URI=gs://...` so startup fetches code from GCS | T2 | opt-4-depth32 startup |
+| 15 | `ImportError.*libpython3\.12\.so\.1\.0` | torch_xla cannot find uv-managed CPython shared library | Export uv CPython lib dir in `LD_LIBRARY_PATH` via `_remote_redeploy.sh` / startup fallback | T2 | opt-4-depth32 redeploy |
 
 ## Output schema (`tpu-diagnoser` returns this)
 
 ```json
 {
-  "classification": "xla-cache | scan-structure | fakeTensor | oom | compile-stall | t3-corruption | repeat | unknown",
+  "classification": "xla-cache | scan-structure | fakeTensor | oom | compile-stall | git-auth | libpython | t3-corruption | repeat | unknown",
   "matched_signature": "exact regex/string that matched",
   "matched_table_row": 1,
   "recommended_patches": [

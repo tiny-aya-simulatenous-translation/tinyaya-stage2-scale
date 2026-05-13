@@ -1,8 +1,13 @@
 # TPU Orchestration Control Plane
 
-**Version:** v1 (2026-05-10)
+**Version:** v2 (2026-05-13)
 **Purpose:** unify skills, droids, hooks, memory files, orchestration
 specs, and runtime artifacts for TinyAya Stage 2 TPU work.
+
+Current durable milestone: iter 24h remains the protected fallback
+baseline, while `opt-prod5k` is the promoted optimized production
+checkpoint. Phase 4 activation/depth candidates are now compared
+against `opt-prod5k` before promotion.
 
 ## 1. Entry points
 
@@ -143,8 +148,9 @@ For each candidate:
 3. If promoted or rejected for a durable reason, add a compact decision
    to `memories.md`.
 4. Keep raw XProf traces, logs, and metric dumps in `_artifacts/` or GCS.
-5. Update `TPU_OPTIMIZATION_SPEC.md` only when the process changes, not
-   for routine run results.
+5. Update `TPU_OPTIMIZATION_SPEC.md` / playbooks when a phase closes,
+   a candidate is promoted/rejected durably, or the process changes;
+   routine check-ins stay in `PROGRESS.md`.
 
 ## 9. Escalation boundaries
 

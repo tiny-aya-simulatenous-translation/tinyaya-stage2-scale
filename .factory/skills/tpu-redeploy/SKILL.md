@@ -54,6 +54,9 @@ to a single SSH because there is exactly ONE worker.
 
    This script:
    - rsyncs modified files to `/opt/tinyaya/` on the worker
+   - discovers the uv-managed CPython lib directory and prepends it to
+     `LD_LIBRARY_PATH` so `torch_xla/_XLAC.so` can load
+     `libpython3.12.so.1.0`
    - kills any running tmux session named `train`
    - SCPs the iter-N launcher + companion scripts to `/tmp/`
    - starts a new tmux session running the launcher
@@ -94,6 +97,7 @@ to a single SSH because there is exactly ONE worker.
 | Symptom | Action |
 |---|---|
 | `gcloud ssh ... Connection refused` | **ESCALATE** (Tier 3 -- VM corruption) |
+| `ImportError: libpython3.12.so.1.0` | Check the `_remote_redeploy.sh` uv CPython lib fallback and `LD_LIBRARY_PATH` export |
 | `_remote_redeploy.sh` exits non-zero | Capture stderr, show user, escalate |
 | Worker has no PID after 30 s | ESCALATE; partial deploy is unsafe |
 | QR state != ACTIVE | ESCALATE; need fresh QR (Tier 3) |

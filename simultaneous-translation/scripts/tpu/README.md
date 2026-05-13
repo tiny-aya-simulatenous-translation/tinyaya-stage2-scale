@@ -8,14 +8,23 @@ hardware via the Queued Resource API.
 The validated production topology is **single-host TPU v6e-8 spot in
 `europe-west4-a`** (QR `tinyaya-stage2-spot-v6e8-eu-qr`, node
 `tinyaya-stage2-spot-v6e8-eu`, profile shorthand `v6e-8-eu`,
-config `configs/stage2_tpu_v6e_spot.yaml`). On v6e-8 there
+production config `configs/stage2_tpu_v6e_spot_opt_prod5k.yaml`). On v6e-8 there
 is one host with 8 chips and ONE Python process driving them via
 SPMD. Iter 24h completed 5000/5000 steps on this path:
 W&B run [`7rrjupc7`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/7rrjupc7),
 final loss 5.3558, training wall 615.9 min, exit status 0, final
 checkpoint
 `gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot/step_005000_final/`
-(8 objects, 2.37 GiB). v4-32 spot in `us-central2-b` (4 hosts) is
+(8 objects, 2.37 GiB). The optimized `opt-prod5k` run
+[`kzsijxv5`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/kzsijxv5)
+then completed 5000/5000 steps in 562 min with p50 6.14 s/step,
+p99 6.76 s/step, final loss 5.105, and checkpoint
+`gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-prod5k/step_005000_final/`.
+Phase 4 uses the same launch path for candidate configs. The first
+candidate, `stage2_tpu_v6e_spot_opt_depth32.yaml`, completed 300/300
+steps as W&B
+[`i15igq8d`](https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/i15igq8d)
+with p50 5.296 s/step and p99 5.725 s/step. v4-32 spot in `us-central2-b` (4 hosts) is
 legacy (see "Legacy v4 examples" below). The runbook below starts
 with the v6e-8 EU production example.
 
@@ -27,9 +36,10 @@ For the design rationale and decision history, see
 | File | Where it runs | Purpose |
 |---|---|---|
 | `setup_gcp.sh` | local workstation, once | enables APIs, creates GCS bucket, seeds Secret Manager from `.env`, grants IAM |
-| `launch_qr.sh` | local workstation | submits the Queued Resource for `v4-64` on-demand (full or canary, via `CONFIG_FILE`) |
+| `launch_qr.sh` | local workstation | submits the Queued Resource for legacy v4 launches (full or canary, via `CONFIG_FILE`) |
+| `launch_spot.sh` | local workstation | submits the current v6e-8 EU spot queued resource via `TRC_PROFILE=v6e-8-eu` |
 | `launch_canary.sh` | local workstation | wrapper that calls `launch_qr.sh` with canary defaults (200 steps, separate QR + ckpt prefix) |
-| `startup_script.sh` | every TPU host at boot | installs uv + Python 3.12.13, syncs `uv.lock`, fetches secrets, downloads data, reads `config-file` from VM metadata, starts training in a tmux restart loop |
+| `startup_script.sh` | every TPU host at boot | installs uv + Python 3.12.13, fetches a GCS repo tarball when `REPO_TARBALL_GS_URI` is set, syncs `uv.lock`, fetches secrets, downloads data, reads `config-file` from VM metadata, starts training in a tmux restart loop |
 | `ops.sh` | local workstation | `status`, `tail-logs`, `attach`, `ssh`, `pull-best`, `delete` |
 
 ## Configuration
@@ -55,6 +65,9 @@ prefixing the command with `VAR=value bash ...`.
 | `CKPT_PREFIX` | `checkpoints/stage2-tpu` | `ops.sh pull-best` |
 | `CANARY_CKPT_PREFIX` | `checkpoints/canary` | (informational) |
 | `CONFIG_FILE` | `configs/stage2_tpu.yaml` (full) / `configs/stage2_tpu_canary.yaml` (canary) | `launch_qr.sh`, `launch_canary.sh` |
+| `TRC_PROFILE` | unset | `launch_spot.sh`; use `v6e-8-eu` for current production/optimization runs |
+| `REPO_TARBALL_GS_URI` | unset | `launch_spot.sh`, `startup_script.sh`; when set, startup fetches code from GCS instead of cloning GitHub |
+| `PROBE_FIRST` | `1` | `launch_spot.sh`; set `0` for known-good production/optimization configs |
 | `SECRET_HF` | `hf-token` (script default) | `setup_gcp.sh`, `startup_script.sh` — only override if you renamed the secret in GCP |
 | `SECRET_WANDB` | `wandb-api-key` (script default) | `setup_gcp.sh`, `startup_script.sh` — only override if you renamed the secret in GCP |
 | `HF_TOKEN` | (from `.env`, required by `setup_gcp.sh`) | seeded into Secret Manager |
@@ -87,17 +100,24 @@ gcloud auth application-default login
 # 3. seed GCP (bucket, secrets, IAM)
 bash simultaneous-translation/scripts/tpu/setup_gcp.sh
 
-# 4. launch single-host v6e-8 spot in europe-west4-a
-#    (canonical command for the validated production topology)
+# 4. package the current branch for private-repo-safe TPU startup
+tar --exclude-vcs --exclude='./_artifacts' --exclude='./wandb' \
+  -czf /tmp/tinyaya-phase4.tar.gz .
+gsutil cp /tmp/tinyaya-phase4.tar.gz \
+  gs://tinyaya-stage2-tpu/code/phase4-depth32-$(date -u +%Y%m%dT%H%M%SZ).tar.gz
+
+# 5. launch single-host v6e-8 spot in europe-west4-a
+#    (canonical command for the optimized production topology)
 TRC_PROFILE=v6e-8-eu \
 QR_NAME=tinyaya-stage2-spot-v6e8-eu-qr \
 NODE_ID=tinyaya-stage2-spot-v6e8-eu \
-CONFIG_FILE=configs/stage2_tpu_v6e_spot.yaml \
+CONFIG_FILE=configs/stage2_tpu_v6e_spot_opt_prod5k.yaml \
+REPO_TARBALL_GS_URI=gs://tinyaya-stage2-tpu/code/<repo-tarball>.tar.gz \
 TPU_STRATEGY=fsdpv2_lora \
-PROBE_FIRST=1 \
+PROBE_FIRST=0 \
   bash simultaneous-translation/scripts/tpu/launch_spot.sh
 
-# 5. observe run
+# 6. observe run
 QR_NAME=tinyaya-stage2-spot-v6e8-eu-qr \
 NODE_ID=tinyaya-stage2-spot-v6e8-eu \
 ZONE=europe-west4-a \
@@ -107,13 +127,13 @@ NODE_ID=tinyaya-stage2-spot-v6e8-eu \
 ZONE=europe-west4-a \
   bash simultaneous-translation/scripts/tpu/ops.sh tail-logs
 
-# 6. teardown when validation/checkpoint review is complete
+# 7. teardown when validation/checkpoint review is complete
 QR_NAME=tinyaya-stage2-spot-v6e8-eu-qr \
 NODE_ID=tinyaya-stage2-spot-v6e8-eu \
 ZONE=europe-west4-a \
   bash simultaneous-translation/scripts/tpu/ops.sh delete
 
-# 7-11: see "Legacy v4 examples" below for the historical
+# 8-12: see "Legacy v4 examples" below for the historical
 # v4-32 / v4-64 full-run runbook (multi-host).
 ```
 
@@ -172,17 +192,20 @@ the QR or promoting the checkpoint downstream:
 
 1. QR transitions `WAITING_FOR_RESOURCES → ACTIVE` within ~10 min
 2. `tpu-info` on worker 0 reports 8 chips
-3. W&B run URL is announced and matches `v6e-spot-stage2-5k-*`
+3. W&B run URL is announced and matches the selected config
+   (`v6e-spot-stage2-opt-prod5k`, `v6e-spot-stage2-opt4-*`, etc.)
 4. `/tmp/train.log` reaches step 300 without NaN/OOM/FATAL signals
 5. `/tmp/train.log` reaches step 5000/5000
 6. `training exited with status 0`
 7. Canonical final save uploads to
-   `gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot/step_005000_final/`
+   the config's `gs://tinyaya-stage2-tpu/checkpoints/.../step_005000_final/`
 8. GCS lists the final checkpoint files (`metadata.json`,
    `text_embed.pt`, `depth_decoder.pt`, `projection.pt`,
    `audio_heads.pt`, and `peft_adapter/*`)
 
-Iter 24h satisfied all 8 criteria.
+Iter 24h and `opt-prod5k` satisfied all 8 production criteria.
+`opt-4-depth32` satisfied the 300-step Phase 4 variant with exit
+status 0 and no NaN/OOM/FATAL signatures.
 
 ## Troubleshooting
 
@@ -194,10 +217,13 @@ Iter 24h satisfied all 8 criteria.
 | `secretmanager.googleapis.com not enabled` | `setup_gcp.sh` didn't run | run it; it's idempotent |
 | `permission denied` on GCS write | TPU SA missing role | re-run `setup_gcp.sh` (it re-applies IAM) |
 | `uv: command not found` after boot | astral.sh unreachable | the script falls back to `pip install uv`; check `/tmp/startup.log` |
+| Private GitHub clone fails | Fresh TPU VM has no GitHub credentials | Upload a repo tarball to GCS and pass `REPO_TARBALL_GS_URI=gs://...` |
+| `ImportError: libpython3.12.so.1.0` | torch_xla cannot find uv-managed CPython's shared library | Use the current `_remote_redeploy.sh` / startup libpython fallback |
+| W&B charts show 0..499 for a 5000-step run | W&B internal `_step` counted log events, not training steps | Current training code logs `global_step` and defines it as the x-axis |
 
 ## What this does NOT do
 
 - Use Multislice (single slice only)
-- Handle spot/preemptible (we're on-demand)
+- Use multi-host TPU for the current v6e-8 path (single host only)
 - Async checkpointing (synchronous via `xm.save`)
 - Auto-eval after training (run `eval_stage2.py` separately on a GPU)
