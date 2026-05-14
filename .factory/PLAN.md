@@ -72,8 +72,14 @@ preserving stability, checkpoint safety, and evaluation quality.
   then completed 300/300 steps with exit 0. W&B `i15igq8d`:
   https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/i15igq8d.
   Final metrics: p50=5.296s, p99=5.725s, examples/sec=49.13,
-  loss=6.6539. No NaN/OOM/fatal log signatures; HBM telemetry still
-  needs review before durable promotion.
+  loss=6.6539. No NaN/OOM/fatal log signatures. HBM telemetry review
+  is now resolved by smoke `enzsklrh`, which recorded
+  `mem/hbm_available=1`, `mem/peak_gb=21.57`, and host RSS
+  `56.46 GiB`; depth32 remains below the 29 GiB HBM gate.
+- **Phase 4 rejection:** `opt-4-no-ckpt` (W&B `wvgzewlk`) was aborted
+  before the 300-step gate. It stalled after compile warmup with TPU
+  duty 0%, reached internal `step=1` at `29.08 GiB / 31.25 GiB`, and
+  crossed the 29 GiB HBM abort gate. Keep `xla_grad_checkpoint=true`.
 
 ## Definition of Done
 
@@ -134,7 +140,10 @@ on v6e-8.**
 
 ### Phase 4 — Activation and depth-chunk sweep
 
-- [ ] Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- [x] Restore HBM instrumentation before further Phase 4 promotion
+  (W&B `enzsklrh`, `mem/peak_gb=21.57`, `mem/hbm_available=1`).
+- [x] Test `xla_grad_checkpoint=false` on the best Phase 3 candidate
+  (rejected: W&B `wvgzewlk`, `29.08 GiB` HBM at internal step 1).
 - [x] Test `depth_chunk_size=32` (`opt-4-depth32`, W&B `i15igq8d`, passed 300-step gate).
 - [ ] Test `depth_chunk_size=64` only if HBM remains safe.
 - [ ] Keep iter 24h defaults if larger candidates regress or OOM.

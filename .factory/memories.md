@@ -22,6 +22,32 @@
 
 ## Architecture decisions
 
+### 2026-05-14: TPU HBM telemetry uses `tpu-info` fallback under SPMD
+
+**Decision:** Treat `tpu-info --metric hbm_usage` as the authoritative
+TPU HBM source for single-host v6e-8 SPMD runs. W&B run `enzsklrh`
+validated the patched fallback: 20/20-step HBM smoke completed with
+`mem/hbm_available=1`, `mem/peak_gb=21.57`, and host RSS `56.46 GiB`.
+
+**Gotcha:** This runtime does not expose
+`torch_xla.runtime.using_spmd`; calling it raised `AttributeError` and
+initially produced sentinel metrics. The HBM path must fall back to
+`tpu-info` when `using_spmd` is absent, when `xm.get_memory_info`
+throws, or when it returns all-zero HBM counters.
+
+### 2026-05-14: `xla_grad_checkpoint=false` rejected on v6e-8
+
+**Decision:** Keep `xla_grad_checkpoint=true` for the v6e-8 production
+path. Phase 4 `opt-4-no-ckpt` (W&B `wvgzewlk`) was aborted before the
+300-step gate: after compile warmup it stalled with TPU duty 0%, then
+internal `step=1` showed `29.08 GiB / 31.25 GiB` HBM, crossing the
+29 GiB abort gate.
+
+**Gotcha:** Disabling activation checkpointing is not merely a
+throughput trade-off for this model; it consumes nearly all per-chip
+HBM before the first logged boundary, so it does not produce a safe
+promotion signal.
+
 ### 2026-05-13: opt-4-depth32 passed 300-step Phase 4 gate
 
 **Decision:** `depth_chunk_size=32` is a viable Phase 4 candidate on

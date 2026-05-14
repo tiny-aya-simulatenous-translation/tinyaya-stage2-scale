@@ -330,6 +330,27 @@ def _percentile(values: list[float], q: float) -> float | None:
     return ordered[lo] * (1.0 - frac) + ordered[hi] * frac
 
 
+def _host_rss_gb() -> float:
+    """Return current host resident set size in GB.
+
+    Returns:
+        Current process RSS in decimal GB, or ``0.0`` if Linux
+        ``/proc`` is unavailable.
+
+    Notes:
+        TPU note: HBM is device memory, while RSS is CPU host RAM. RSS
+        is not a replacement for the HBM gate, but it gives the
+        orchestrator a non-zero memory signal when TPU runtimes cannot
+        expose HBM counters.
+    """
+    try:
+        with open("/proc/self/statm", encoding="utf-8") as f:
+            resident_pages = int(f.read().split()[1])
+        return resident_pages * os.sysconf("SC_PAGE_SIZE") / 1e9
+    except (OSError, IndexError, ValueError):
+        return 0.0
+
+
 def _deep_update(d, u):
     for k, v in u.items():
         if isinstance(v, dict) and isinstance(d.get(k), dict):
@@ -1494,12 +1515,14 @@ def main():
             mem_info = backend.get_memory_info()
             peak_gb = mem_info["max_allocated_gb"] if mem_info else 0
             alloc_gb = mem_info["allocated_gb"] if mem_info else 0
+            hbm_available = mem_info.get("hbm_available", 0.0) if mem_info else 0.0
+            host_rss_gb = _host_rss_gb()
             if is_main:
                 print(
                     f"step {step:6d} | loss {avg['loss']:.4f} | "
                     f"text {avg['text']:.4f} audio {avg['audio']:.4f} | "
                     f"grad {grad_norm:.3f} | {step_time:.2f}s/step | "
-                    f"peak {peak_gb:.1f}G"
+                    f"peak {peak_gb:.1f}G | host_rss {host_rss_gb:.1f}G"
                 )
             if use_wandb and is_main:
                 import wandb
@@ -1512,6 +1535,8 @@ def main():
                     "perf/step_time": step_time,
                     "mem/peak_gb": peak_gb,
                     "mem/allocated_gb": alloc_gb,
+                    "mem/hbm_available": hbm_available,
+                    "host/rss_gb": host_rss_gb,
                     **perf_log,
                     **lrs,
                 }

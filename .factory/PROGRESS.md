@@ -26,6 +26,171 @@ moved to `.factory/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-05-14T03:27:03Z | feat/tpu-hbm-instrumentation@b01b255 | fail | exec
+`opt-4-no-ckpt` rejected: compile-stall/memory-pressure crossed the HBM abort gate.
+
+Launched W&B `wvgzewlk`
+(https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/wvgzewlk) with
+`xla_grad_checkpoint=false`, `depth_chunk_size=16`, b=8/g=4. At
+~34 min wall, compile warmup had completed but no log boundary had
+landed; TPU duty was 0% and external `tpu-info` showed
+27.68-28.09 GiB HBM. `tpu-diagnoser` classified this as T2
+compile-stall. The run then reached internal `step=1` with
+`hbm_used=29.08GB/31.25GB`, crossing the 29 GiB gate, so the
+orchestrator killed the tmux/Python process. QR is idle. Remote diag
+snapshot: `/tmp/opt4_nockpt_diag_20260514T032558Z`.
+
+## 2026-05-14T03:23:56Z | feat/tpu-hbm-instrumentation@b01b255 | info | session
+SessionEnd (other): 16 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+
+
+## 2026-05-14T03:23:56Z | feat/tpu-hbm-instrumentation@b01b255 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-14T02:46:22Z | feat/tpu-hbm-instrumentation@b01b255 | done | exec
+HBM smoke `enzsklrh` passed; W&B now records real TPU HBM telemetry.
+
+Patched TPU memory reporting to find `.venv/bin/tpu-info`, fall back
+when `torch_xla.runtime.using_spmd` is absent, and emit explicit
+`mem/hbm_available` plus host RSS metrics. Final smoke
+`v6e-spot-stage2-hbm-smoke` reached 20/20 steps with exit 0:
+`mem/hbm_available=1`, `mem/peak_gb=21.57`,
+`mem/allocated_gb=21.57`, `host/rss_gb=56.46`,
+`perf/step_time=4.64s`, loss `8.1458`.
+W&B: https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/enzsklrh.
+QR is idle after completion. Full VERIFY: 20/20 passed.
+
+## 2026-05-14T01:12:29Z | feat/tpu-hbm-instrumentation@b01b255 | info | session
+SessionEnd (other): 16 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+
+
+## 2026-05-14T01:12:29Z | feat/tpu-hbm-instrumentation@b01b255 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-14T00:35:42Z | feat/tpu-hbm-instrumentation@b01b255 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-14T00:31:00Z | main@b01b255 | info | session
+SessionEnd (other): 16 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+
+
+## 2026-05-14T00:30:53Z | main@b01b255 | info | session
+PreCompact (auto): 16 unchecked PLAN items
+
+Top open items:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+- If material, test static prewarmed buckets such as `200/300/400`.
+- Require macro-step-boundary bucket switches and no surprise late
+
+
+## 2026-05-14T00:30:26Z | main@b01b255 | info | session
+SessionEnd (other): 16 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+
+
+## 2026-05-13T14:06:25Z | main@b01b255 | info | session
+SessionEnd (other): 16 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+
+
+## 2026-05-13T14:05:54Z | main@b01b255 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T14:05:29Z | main@b01b255 | info | session
+SessionEnd (other): 16 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+
+
+## 2026-05-13T14:05:29Z | main@b01b255 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-05-13T13:54:47Z | main@b01b255 | info | session
+SessionEnd (other): 16 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+
+
+## 2026-05-13T13:54:46Z | main@b01b255 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
 ## 2026-05-13T13:41:00Z | feat/tpu-support@34850b1 | done | verify
 Repository VERIFY passed after documentation and Phase 4 updates.
 
