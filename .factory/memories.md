@@ -22,6 +22,47 @@
 
 ## Architecture decisions
 
+### 2026-05-15: `[256,400]` bucket sampler passes Phase 6 1000-step gate
+
+**Decision:** Promote the `[256,400]` two-bucket static sampler to the
+Phase 6 production candidate. W&B `zqgip8uc`
+(`v6e-spot-stage2-opt6-bucket256-400-1k`) completed 1000/1000 steps
+with exit 0, p50=3.393s, p90=3.532s, p99=4.029s, examples/sec=72.64,
+final loss=6.209 (text=10.020, audio=5.207), HBM peak=26.36 GiB, and
+host RSS=55.68 GiB. This beats `opt-4-depth64-prod5k` by ~11% p50 and
+~7.8% examples/sec while staying below the 29 GiB HBM abort gate.
+Per `.factory/orchestration/TPU_OPTIMIZATION_SPEC.md` Phase 8, the
+next step is a 5000-step production pass via
+`configs/stage2_tpu_v6e_spot_opt6_bucket256_400_prod5k.yaml`, followed
+by `eval_stage2.py` on the resulting checkpoint.
+
+**Gotcha:** The `[200,300,400]` candidate failed with a compile-time
+HBM OOM specifically on the 300-frame graph (W&B `o6cq50k2`,
+`bf16[1,300,264196]` allocation). Multiples of 64 (256, 400) are
+TPU-friendlier than mixed multiples. Keep new bucket boundaries
+aligned to multiples of 64 unless an HBM profile justifies otherwise.
+
+**Gotcha:** `BucketedMacroBatchSampler` requires
+`train.compile_warmup_steps` >= `len(bucket_frames)` so one zero-LR
+warmup macro-step compiles each static shape before counted step 1.
+The sampler also reorders so the first macro-step from every bucket
+runs during warmup; later epochs reshuffle but never cross macro-step
+boundaries inside a bucket.
+
+### 2026-05-14: `depth_chunk_size=64` completed 5000-step production pass
+
+**Decision:** Promote `depth_chunk_size=64` as the selected optimized
+checkpoint pending evaluation. W&B `6pa81xox`
+(`v6e-spot-stage2-opt4-depth64-prod5k`) completed 5000/5000 steps with
+exit 0 and canonical checkpoint upload to
+`gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-depth64-prod5k/step_005000_final/`.
+Final metrics: p50=3.8125s, examples/sec=67.39, loss=5.2072, and HBM
+peak=26.34 GiB.
+
+**Gotcha:** Keep the 29 GiB HBM abort gate for future depth64-derived
+runs. Depth64 is much faster than prior production configs but remains
+closer to the v6e-8 HBM ceiling than depth32.
+
 ### 2026-05-14: TPU HBM telemetry uses `tpu-info` fallback under SPMD
 
 **Decision:** Treat `tpu-info --metric hbm_usage` as the authoritative
