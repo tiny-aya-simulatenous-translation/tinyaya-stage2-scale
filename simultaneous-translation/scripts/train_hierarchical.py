@@ -135,6 +135,7 @@ _patch_attention_mask_for_bf16()
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.backend import get_backend
+from src.data.bucket_sampler import BucketedMacroBatchSampler, normalize_buckets
 from src.data.collator import InterleavedCollator
 from src.data.dataset import StreamingTranslationDataset, TranslationDataset
 from src.model.backbone import TinyAyaBackbone
@@ -154,6 +155,29 @@ _FSDPV2_BARRIER_TARGET_CLASSES: tuple[str, ...] = (
     "CohereDecoderLayer",
     "MoshiDecoderLayer",
 )
+
+
+def _streaming_effective_frame_lengths(
+    dataset: StreamingTranslationDataset,
+    *,
+    max_frames: int,
+) -> list[int]:
+    """Read encoded tensor shapes and return post-truncation frame lengths."""
+    lengths: list[int] = []
+    for row in dataset.rows:
+        pt_path = dataset._resolve(row["pt_path"])
+        try:
+            data = torch.load(pt_path, weights_only=False, mmap=True, map_location="cpu")
+        except (TypeError, RuntimeError):
+            data = torch.load(pt_path, weights_only=False, map_location="cpu")
+        src_len = int(data["src_codes"].shape[1])
+        tgt_len = int(data["tgt_codes"].shape[1])
+        total = src_len + tgt_len
+        effective = min(total, max_frames)
+        if src_len > max_frames - 1:
+            effective = max_frames
+        lengths.append(effective)
+    return lengths
 
 
 def _apply_fsdpv2_backward_barriers(model: torch.nn.Module) -> int:
@@ -247,6 +271,7 @@ DEFAULTS = {
         "val_split": None,
         "encoded_dir": None,
         "max_frames": 300,
+        "bucket_frames": None,
         "audio_frame_rate": 12.5,
         "num_workers": 4,
         "pin_memory": True,
@@ -761,13 +786,19 @@ def main():
     # ---- data
     if is_main:
         print("\n=== Datasets ===")
-    # On TPU we MUST pad every batch to the same length, otherwise XLA
-    # recompiles per unique sequence-length seen (pytorch/xla #4203 /
+    # On TPU we MUST pad batches to a bounded static shape set, otherwise
+    # XLA recompiles per unique sequence length seen (pytorch/xla #4203 /
     # https://docs.pytorch.org/xla/master/perf/recompilation.html). On
-    # GPU/CPU dynamic shapes are fine, so we only force fixed padding
+    # GPU/CPU dynamic shapes are fine, so we only force static padding
     # when the backend is TPU.
     is_tpu_cfg = cfg.get("backend", "auto") == "tpu"
-    pad_to = cfg["data"].get("max_frames") if is_tpu_cfg else None
+    bucket_frames = None
+    if is_tpu_cfg and cfg["data"].get("bucket_frames"):
+        bucket_frames = normalize_buckets(
+            cfg["data"]["bucket_frames"],
+            max_frames=max_frames,
+        )
+    pad_to = bucket_frames or (cfg["data"].get("max_frames") if is_tpu_cfg else None)
     # iter 24h: also pad the batch axis on TPU. `drop_last=True` alone
     # left 1035 micro-batches at b=8, so step 259 crossed the epoch
     # boundary inside a 4-way grad-accum graph. Padded tails keep the
@@ -809,6 +840,37 @@ def main():
     if backend.world_size() > 1 and not is_tpu:
         num_workers = min(num_workers, 6)
 
+    bucket_batch_sampler = None
+    if is_tpu and bucket_frames is not None:
+        if not isinstance(train_ds, StreamingTranslationDataset):
+            raise ValueError("data.bucket_frames currently requires streaming dataset mode")
+        if is_main:
+            print(
+                f"[data] scanning {len(train_ds)} encoded shapes for bucket_frames={bucket_frames}",
+                flush=True,
+            )
+        bucket_lengths = _streaming_effective_frame_lengths(train_ds, max_frames=max_frames)
+        bucket_batch_sampler = BucketedMacroBatchSampler(
+            bucket_lengths,
+            bucket_frames,
+            batch_size=cfg["train"]["batch_size"],
+            grad_accum=cfg["train"]["grad_accum"],
+            shuffle=True,
+            warmup_first=True,
+        )
+        if is_main:
+            fixed_tokens = len(bucket_lengths) * max_frames
+            bucketed_tokens = sum(
+                count * bucket for bucket, count in bucket_batch_sampler.bucket_counts.items()
+            )
+            print(
+                "[data] bucket_counts="
+                f"{dict(sorted(bucket_batch_sampler.bucket_counts.items()))} "
+                f"padded_examples_per_epoch={bucket_batch_sampler.padded_examples_per_epoch} "
+                f"token_reduction_vs_fixed={100 * (1 - bucketed_tokens / fixed_tokens):.2f}%",
+                flush=True,
+            )
+
     if is_tpu:
         # SPMD is single-process -- no distributed sampler
         train_sampler = None
@@ -824,17 +886,28 @@ def main():
     # pads the tail batch to `batch_size`, so keep drop_last=False and
     # preserve the full epoch.
     train_drop_last = False
-    train_loader = torch.utils.data.DataLoader(
-        train_ds,
-        batch_size=cfg["train"]["batch_size"],
-        shuffle=(train_sampler is None),
-        sampler=train_sampler,
-        collate_fn=collator,
-        num_workers=num_workers,
-        pin_memory=cfg["data"]["pin_memory"] and not is_tpu,
-        persistent_workers=num_workers > 0 and not is_tpu,
-        drop_last=train_drop_last,
-    )
+    if bucket_batch_sampler is not None:
+        train_sampler = bucket_batch_sampler
+        train_loader = torch.utils.data.DataLoader(
+            train_ds,
+            batch_sampler=bucket_batch_sampler,
+            collate_fn=collator,
+            num_workers=num_workers,
+            pin_memory=cfg["data"]["pin_memory"] and not is_tpu,
+            persistent_workers=num_workers > 0 and not is_tpu,
+        )
+    else:
+        train_loader = torch.utils.data.DataLoader(
+            train_ds,
+            batch_size=cfg["train"]["batch_size"],
+            shuffle=(train_sampler is None),
+            sampler=train_sampler,
+            collate_fn=collator,
+            num_workers=num_workers,
+            pin_memory=cfg["data"]["pin_memory"] and not is_tpu,
+            persistent_workers=num_workers > 0 and not is_tpu,
+            drop_last=train_drop_last,
+        )
     if is_main:
         print(
             "[data] "
@@ -1063,6 +1136,12 @@ def main():
     def trace_ctx(name: str):
         # GPU analogue: torch.profiler.record_function. On TPU this only
         # emits labels when an external XProf capture is active.
+        if is_tpu and name in {"logging_materialize", "mark_step", "optimizer_step"}:
+            # xp.Trace scopes must be closed before xm.mark_step()/torch_xla.sync.
+            # Otherwise torch_xla raises "Expecting scope to be empty" during
+            # the step marker. Keep host/data/forward/backward labels for Phase
+            # 5 profiling, but leave XLA's execution fence unwrapped.
+            return contextlib.nullcontext()
         return xprof_trace(name) if xprof_trace else contextlib.nullcontext()
 
     replay_batches: deque[dict[str, torch.Tensor]] = deque()
@@ -1167,8 +1246,15 @@ def main():
                 batch_audio = batch["audio_codes"]
                 if is_tpu:
                     expected_batch = cfg["train"]["batch_size"]
-                    expected_2d = (expected_batch, max_frames)
-                    expected_audio = (expected_batch, num_codebooks, max_frames)
+                    seq_frames = int(batch_audio.shape[2])
+                    allowed_frames = bucket_frames or (max_frames,)
+                    if seq_frames not in allowed_frames:
+                        raise RuntimeError(
+                            "TPU bucket invariant violated: "
+                            f"seq_frames={seq_frames} not in allowed={allowed_frames}"
+                        )
+                    expected_2d = (expected_batch, seq_frames)
+                    expected_audio = (expected_batch, num_codebooks, seq_frames)
                     if batch_audio.shape[1] < num_codebooks:
                         raise RuntimeError(
                             f"TPU batch has {batch_audio.shape[1]} codebooks; "
