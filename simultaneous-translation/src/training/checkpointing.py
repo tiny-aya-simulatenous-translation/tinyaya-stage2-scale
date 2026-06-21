@@ -119,16 +119,44 @@ def save_checkpoint(
             else None
         )
     else:
-        peft_state = None  # let save_pretrained build it itself on GPU/CPU
-        proj_state = model.projection.state_dict()
-        depth_state = model.depth_decoder.state_dict()
-        text_state = model.backbone.text_embed.state_dict()
-        audio_state = model.backbone.audio_heads.state_dict()
-        model_audio_state = (
-            model.backbone.model_audio_embed.state_dict()
-            if has_model_audio_embed else None
-        )
-        optim_state = optimizer.state_dict()
+        # GPU path: detect FSDP and use summon_full_params to unshard.
+        # ALL ranks must enter summon_full_params (it's a collective).
+        # Only rank 0 (is_main) will actually write files afterward.
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+
+        _is_fsdp = any(isinstance(m, FSDP) for m in model.modules())
+
+        if _is_fsdp:
+            # summon_full_params temporarily materializes full tensors on
+            # all ranks. We copy to CPU inside the context, then the
+            # context manager re-shards automatically on exit.
+            with FSDP.summon_full_params(model, writeback=False):
+                peft_state = _to_cpu_state_dict(model.backbone.model)
+                proj_state = _to_cpu_state_dict(model.projection)
+                depth_state = _to_cpu_state_dict(model.depth_decoder)
+                text_state = _to_cpu_state_dict(model.backbone.text_embed)
+                audio_state = _to_cpu_state_dict(model.backbone.audio_heads)
+                model_audio_state = (
+                    _to_cpu_state_dict(model.backbone.model_audio_embed)
+                    if has_model_audio_embed else None
+                )
+        else:
+            peft_state = _to_cpu_state_dict(model.backbone.model)
+            proj_state = _to_cpu_state_dict(model.projection)
+            depth_state = _to_cpu_state_dict(model.depth_decoder)
+            text_state = _to_cpu_state_dict(model.backbone.text_embed)
+            audio_state = _to_cpu_state_dict(model.backbone.audio_heads)
+            model_audio_state = (
+                _to_cpu_state_dict(model.backbone.model_audio_embed)
+                if has_model_audio_embed else None
+            )
+        # FSDP optimizer state: use FSDP.full_optim_state_dict to gather
+        # the complete optimizer state on rank 0. This is a collective —
+        # all ranks must call it.
+        if _is_fsdp and optimizer is not None:
+            optim_state = FSDP.full_optim_state_dict(model, optimizer)
+        else:
+            optim_state = optimizer.state_dict() if optimizer is not None else None
         sched_state = (
             scheduler.state_dict()
             if scheduler is not None and hasattr(scheduler, "state_dict")
@@ -141,10 +169,9 @@ def save_checkpoint(
     os.makedirs(save_dir, exist_ok=True)
 
     peft_dir = os.path.join(save_dir, "peft_adapter")
-    if peft_state is not None:
-        model.backbone.model.save_pretrained(peft_dir, state_dict=peft_state)
-    else:
-        model.backbone.model.save_pretrained(peft_dir)
+    # peft_state is always pre-gathered now; use state_dict= to avoid
+    # save_pretrained touching the (possibly re-sharded) model.
+    model.backbone.model.save_pretrained(peft_dir, state_dict=peft_state)
 
     torch.save(proj_state, os.path.join(save_dir, "projection.pt"))
     torch.save(depth_state, os.path.join(save_dir, "depth_decoder.pt"))
@@ -303,6 +330,13 @@ def save_checkpoint_canonical_final(
 
 
 def load_checkpoint(model, optimizer, scheduler, load_dir: str) -> int:
+    """Load checkpoint into an UNWRAPPED model (before FSDP/DDP wrapping).
+
+    For FSDP resume: call this BEFORE backend.wrap_model(). The model
+    gets correct weights, then FSDP shards them during wrapping.
+    Optimizer/scheduler state is NOT restored (incompatible after
+    re-sharding) — Adam momentum restarts from zero.
+    """
     from peft.utils.save_and_load import load_peft_weights, set_peft_model_state_dict
 
     with open(os.path.join(load_dir, "metadata.json")) as f:

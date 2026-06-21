@@ -35,9 +35,9 @@ optim:
   lr_model_audio_embed: 1.0e-3
 logging:
   log_every: 10
-  save_every: 500
+  save_every: 250
   audio_every: 500
-  val_every: 500
+  val_every: 250
   save_dir: checkpoints/stage2_26k_parallel
   wandb_project: tinyaya-s2s
   wandb_run_name: 26k_parallel_moshi_full

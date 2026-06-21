@@ -711,6 +711,23 @@ def main():
     freeze_depth_internals(model)
     for p in model.projection.parameters():
         p.requires_grad = True
+
+    # Resume: load model weights BEFORE FSDP wrapping.
+    # FSDP shards params during wrap_model(), so loading into an already-sharded
+    # model is broken. We load weights into the unwrapped model, then FSDP wraps
+    # the correctly-initialized params. Optimizer state is NOT restored (Adam
+    # momentum restarts) but model weights are correct.
+    from src.training.checkpointing import find_latest_checkpoint, load_checkpoint
+
+    start_step = 0
+    resume_dir = args.resume
+    if resume_dir == "auto":
+        resume_dir = find_latest_checkpoint(cfg["logging"]["save_dir"])
+    if resume_dir:
+        start_step = load_checkpoint(model, None, None, resume_dir)
+        if is_main:
+            print(f"Loaded model weights from {resume_dir} (step {start_step})")
+
     model = model.to(device)
 
     # Gradient checkpointing strategy:
@@ -741,7 +758,8 @@ def main():
         _apply_fsdpv2_backward_barriers(model)
     if hasattr(backend, "diagnose"):
         backend.diagnose("post-wrap")
-    unwrapped = model.module if hasattr(model, "module") else model
+    unwrapped = model._fsdp_wrapped_module if hasattr(model, "_fsdp_wrapped_module") else (model.module if hasattr(model, "module") else model)
+    fsdp_model = model  # keep reference to FSDP wrapper for save_checkpoint
 
     total = sum(p.numel() for p in unwrapped.parameters())
     trainable = sum(p.numel() for p in unwrapped.parameters() if p.requires_grad)
@@ -871,18 +889,33 @@ def main():
         min_lr_ratio=cfg["train"]["min_lr_ratio"],
     )
 
-    from src.training.checkpointing import find_latest_checkpoint, load_checkpoint_with_backend
-
-    start_step = 0
-    resume_dir = args.resume
-    if resume_dir == "auto":
-        resume_dir = find_latest_checkpoint(cfg["logging"]["save_dir"])
-    if resume_dir:
-        start_step = load_checkpoint_with_backend(
-            unwrapped, optimizer, scheduler, resume_dir, backend
-        )
+    # Resume optimizer + scheduler state (AFTER FSDP wrap + optimizer creation)
+    if start_step > 0 and resume_dir:
+        opt_p = os.path.join(resume_dir, "optimizer.pt")
+        if os.path.exists(opt_p):
+            full_osd = torch.load(opt_p, map_location="cpu", weights_only=True)
+            try:
+                from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+                _is_fsdp = any(isinstance(m, FSDP) for m in fsdp_model.modules())
+            except ImportError:
+                _is_fsdp = False
+            if _is_fsdp:
+                # Reshard the full optimizer state for FSDP
+                osd_to_load = FSDP.optim_state_dict_to_load(
+                    fsdp_model, optimizer, full_osd
+                )
+                optimizer.load_state_dict(osd_to_load)
+            else:
+                optimizer.load_state_dict(full_osd)
+            if is_main:
+                print(f"Restored optimizer state from {resume_dir}")
+        sch_p = os.path.join(resume_dir, "scheduler.pt")
+        if os.path.exists(sch_p):
+            scheduler.load_state_dict(torch.load(sch_p, map_location="cpu", weights_only=True))
+            if is_main:
+                print(f"Restored scheduler state from {resume_dir}")
         if is_main:
-            print(f"Resumed at step {start_step}")
+            print(f"Resuming training from step {start_step}")
 
     # ---- wandb
     # On a multi-host TPU pod (v4-32 = 4 hosts) every host calls this
@@ -1570,7 +1603,8 @@ def main():
         # main thread for 2-3 hours per call. The audio demo is a
         # qualitative sanity check, not a training requirement;
         # generate samples post-training on a GPU instead.
-        if audio_every and step % audio_every == 0 and is_main and not is_tpu:
+        is_distributed = int(os.environ.get("WORLD_SIZE", "1")) > 1
+        if audio_every and step % audio_every == 0 and is_main and not is_tpu and not is_distributed:
             try:
                 r = generate_audio_sample(
                     unwrapped,
@@ -1644,7 +1678,7 @@ def main():
                 # Patch 16/17: save_checkpoint runs on ALL hosts so the
                 # SPMD .cpu() gather can complete; only is_main writes.
                 save_checkpoint(
-                    unwrapped,
+                    fsdp_model,
                     optimizer,
                     scheduler,
                     step,
@@ -1672,7 +1706,7 @@ def main():
             # Patch 16/17: ALL hosts enter save_checkpoint to participate
             # in the SPMD .cpu() gather; only host-0 actually writes.
             save_checkpoint(
-                unwrapped,
+                fsdp_model,
                 optimizer,
                 scheduler,
                 step,
@@ -1681,7 +1715,7 @@ def main():
                 is_main=is_main,
             )
             if is_main:
-                prune_checkpoints(str(save_dir), keep_last=5, keep_best="best_by_val")
+                prune_checkpoints(str(save_dir), keep_last=3, keep_best="best_by_val")
                 if push_to_hub and hub_repo_id:
                     try:
                         push_checkpoint_to_hub(
@@ -1703,7 +1737,7 @@ def main():
     if save_every:
         d = save_dir / f"step_{step:06d}"
         save_checkpoint(
-            unwrapped,
+            fsdp_model,
             optimizer,
             scheduler,
             step,
