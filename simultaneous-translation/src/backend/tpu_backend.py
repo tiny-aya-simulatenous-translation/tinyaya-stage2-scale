@@ -69,6 +69,9 @@ measurements per strategy.
 from __future__ import annotations
 
 import os
+import re
+import shutil
+import sys
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -127,6 +130,7 @@ class TPUBackend(BackendBase):
         self._mesh = None
         self._world_size_val: int | None = None
         self._strategy: str | None = None
+        self._memory_warning_emitted = False
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -506,6 +510,140 @@ class TPUBackend(BackendBase):
         """
         return nullcontext()
 
+    def _warn_memory_unavailable(self, reason: str) -> None:
+        """Emit a one-time warning when TPU HBM telemetry cannot be read.
+
+        Parameters
+        ----------
+        reason : str
+            Human-readable reason included in the tmux log.
+
+        Notes
+        -----
+        TPU note: under SPMD, ``xm.get_memory_info`` can report all
+        zeros instead of raising. A single explicit warning prevents
+        operators from mistaking missing HBM telemetry for true zero
+        memory usage.
+        """
+        if self._memory_warning_emitted:
+            return
+        print(
+            "[tpu_backend] WARNING: HBM telemetry unavailable; "
+            f"{reason}. mem/* metrics will be -1.",
+            flush=True,
+        )
+        self._memory_warning_emitted = True
+
+    def _unknown_memory_info(self, reason: str) -> dict[str, float]:
+        """Return a sentinel memory record for unavailable TPU HBM stats.
+
+        Parameters
+        ----------
+        reason : str
+            Human-readable reason logged once for the operator.
+
+        Returns
+        -------
+        dict[str, float]
+            Sentinel values. ``-1`` is intentionally not a valid HBM
+            size, so W&B charts make missing telemetry obvious.
+        """
+        self._warn_memory_unavailable(reason)
+        return {
+            "allocated_gb": -1.0,
+            "max_allocated_gb": -1.0,
+            "limit_gb": -1.0,
+            "hbm_available": 0.0,
+        }
+
+    def _find_tpu_info_binary(self) -> str | None:
+        """Find the ``tpu-info`` CLI used as SPMD HBM fallback.
+
+        Returns
+        -------
+        str or None
+            Path to an executable ``tpu-info`` binary, if available.
+
+        Notes
+        -----
+        TPU note: hot redeploy launches via ``sudo uv run python`` on
+        fresh TPU VMs. Depending on how uv resolves Python, ``sys.prefix``
+        may not be the virtualenv that owns console scripts. Check PATH,
+        the active executable's sibling directory, and common TPU/uv
+        locations before giving up.
+        """
+        candidates: list[str | None] = [
+            os.environ.get("TPU_INFO_BIN"),
+            shutil.which("tpu-info"),
+            str(Path(sys.executable).parent / "tpu-info"),
+            str(Path(sys.prefix) / "bin" / "tpu-info"),
+            "/usr/local/bin/tpu-info",
+            "/usr/bin/tpu-info",
+            "/opt/conda/bin/tpu-info",
+            "/root/.local/bin/tpu-info",
+        ]
+        seen: set[str] = set()
+        for candidate in candidates:
+            if not candidate or candidate in seen:
+                continue
+            seen.add(candidate)
+            path = Path(candidate)
+            if path.is_file() and os.access(path, os.X_OK):
+                return str(path)
+        return None
+
+    def _get_tpu_info_memory_info(self) -> dict[str, float]:
+        """Read TPU HBM usage through ``tpu-info``.
+
+        Returns
+        -------
+        dict[str, float]
+            Parsed HBM usage for chip 0, or the standard unavailable
+            sentinel when ``tpu-info`` cannot provide a value.
+        """
+        import subprocess as _sp
+
+        tpu_info = self._find_tpu_info_binary()
+        if not tpu_info:
+            return self._unknown_memory_info("tpu-info binary was not found on PATH")
+
+        try:
+            out = _sp.run(
+                [tpu_info, "--metric", "hbm_usage"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                env={**os.environ, "PJRT_DEVICE": "TPU"},
+            )
+        except Exception as exc:
+            return self._unknown_memory_info(f"tpu-info failed with {exc!r}")
+
+        output = f"{out.stdout}\n{out.stderr}".strip()
+        if out.returncode != 0 or "N/A" in out.stdout:
+            return self._unknown_memory_info(
+                f"tpu-info returned no HBM usage (exit={out.returncode}, output={output[:160]!r})"
+            )
+
+        for line in out.stdout.splitlines():
+            match = re.match(
+                r"^\|\s*0\s*\|\s*([0-9.]+)\s*GiB(?:\s*/\s*([0-9.]+)\s*GiB)?\s*\|",
+                line,
+            )
+            if not match:
+                continue
+            used_gb = float(match.group(1))
+            limit_gb = float(match.group(2)) if match.group(2) else 31.246
+            return {
+                "allocated_gb": used_gb,
+                "max_allocated_gb": used_gb,
+                "limit_gb": limit_gb,
+                "hbm_available": 1.0,
+            }
+
+        return self._unknown_memory_info(
+            f"tpu-info returned no parseable hbm_usage output: {out.stdout[:160]!r}"
+        )
+
     def get_memory_info(self) -> dict | None:
         """Return per-chip HBM usage in GB, or ``None`` on import failure.
 
@@ -533,61 +671,39 @@ class TPUBackend(BackendBase):
         try:
             import torch_xla.core.xla_model as xm
             import torch_xla.runtime as xr
+        except Exception as exc:
+            return self._unknown_memory_info(f"torch_xla memory imports failed with {exc!r}")
 
+        try:
             is_spmd = xr.using_spmd()
+        except AttributeError:
+            return self._get_tpu_info_memory_info()
+        except Exception as exc:
+            info = self._get_tpu_info_memory_info()
+            if info.get("hbm_available", 0.0) == 1.0:
+                return info
+            return self._unknown_memory_info(f"xr.using_spmd failed with {exc!r}")
 
-            if is_spmd:
-                # SPMD path: xm.get_memory_info returns all-zeros
-                # (pytorch/xla #9022). Fall back to tpu-info CLI
-                # which queries the TPU runtime directly under SPMD.
-                # Verified: tpu-info --metric hbm_usage returns
-                # "22.67 GiB / 31.25 GiB" per chip from SSH.
-                import subprocess as _sp
-                import sys
+        if is_spmd:
+            return self._get_tpu_info_memory_info()
 
-                try:
-                    tpu_info = str(Path(sys.prefix) / "bin" / "tpu-info")
-                    out = _sp.run(
-                        [tpu_info, "--metric", "hbm_usage"],
-                        capture_output=True,
-                        text=True,
-                        timeout=10,
-                        env={**os.environ, "PJRT_DEVICE": "TPU"},
-                    )
-                    if out.returncode == 0 and "N/A" not in out.stdout:
-                        # Parse table: "22.67 GiB / 31.25 GiB"
-                        for line in out.stdout.splitlines():
-                            if "|" not in line:
-                                continue
-                            parts = line.strip("|").split("|")
-                            if len(parts) >= 2 and parts[0].strip() == "0":
-                                usage_str = parts[1].strip()
-                                # Format: "22.67 GiB / 31.25 GiB"
-                                if "/" in usage_str:
-                                    used_s, limit_s = usage_str.split("/")
-                                    used_gb = float(used_s.strip().rstrip(" GiB"))
-                                    limit_gb = float(limit_s.strip().rstrip(" GiB"))
-                                else:
-                                    used_gb = float(usage_str.rstrip(" GiB"))
-                                    limit_gb = 31.246
-                                return {
-                                    "allocated_gb": used_gb,
-                                    "max_allocated_gb": 0.0,
-                                    "limit_gb": limit_gb,
-                                }
-                except Exception:
-                    pass
-                return None
-            else:
-                # Non-SPMD path: xm.get_memory_info works correctly.
-                mem = xm.get_memory_info(self.get_device())
-                return {
-                    "allocated_gb": mem.get("bytes_used", 0) / 1e9,
-                    "max_allocated_gb": mem.get("peak_bytes_used", 0) / 1e9,
-                    "limit_gb": mem.get("bytes_limit", 0) / 1e9,
-                }
-        except Exception:
-            return None
+        try:
+            mem = xm.get_memory_info(self.get_device())
+        except Exception as exc:
+            return self._unknown_memory_info(f"xm.get_memory_info failed with {exc!r}")
+
+        allocated_gb = mem.get("bytes_used", 0) / 1e9
+        peak_gb = mem.get("peak_bytes_used", 0) / 1e9
+        limit_gb = mem.get("bytes_limit", 0) / 1e9
+        if allocated_gb == 0 and peak_gb == 0 and limit_gb == 0:
+            return self._get_tpu_info_memory_info()
+
+        return {
+            "allocated_gb": allocated_gb,
+            "max_allocated_gb": peak_gb,
+            "limit_gb": limit_gb,
+            "hbm_available": 1.0,
+        }
 
     def sync(self) -> None:
         """``torch_xla.sync()`` -- fence the lazy graph builder."""

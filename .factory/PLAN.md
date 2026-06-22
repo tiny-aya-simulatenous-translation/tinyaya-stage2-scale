@@ -72,8 +72,39 @@ preserving stability, checkpoint safety, and evaluation quality.
   then completed 300/300 steps with exit 0. W&B `i15igq8d`:
   https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/i15igq8d.
   Final metrics: p50=5.296s, p99=5.725s, examples/sec=49.13,
-  loss=6.6539. No NaN/OOM/fatal log signatures; HBM telemetry still
-  needs review before durable promotion.
+  loss=6.6539. No NaN/OOM/fatal log signatures. HBM telemetry review
+  is now resolved by smoke `enzsklrh`, which recorded
+  `mem/hbm_available=1`, `mem/peak_gb=21.57`, and host RSS
+  `56.46 GiB`; depth32 remains below the 29 GiB HBM gate.
+- **Phase 4 rejection:** `opt-4-no-ckpt` (W&B `wvgzewlk`) was aborted
+  before the 300-step gate. It stalled after compile warmup with TPU
+  duty 0%, reached internal `step=1` at `29.08 GiB / 31.25 GiB`, and
+  crossed the 29 GiB HBM abort gate. Keep `xla_grad_checkpoint=true`.
+- **Phase 4 result:** `opt-4-depth64` (W&B `5mhltpif`) completed
+  300/300 steps with exit 0 and final checkpoint upload. Final metrics:
+  p50=3.810s, p99=3.954s, examples/sec=67.24, loss=6.6668, and
+  HBM peak=26.34 GiB. It is the current fastest Phase 4 candidate and
+  remains below the 29 GiB HBM gate.
+- **Phase 4 validation:** `opt-4-depth64-1k` (W&B `orz36wmc`)
+  completed 1000/1000 steps with exit 0 and final checkpoint upload.
+  Final metrics: p50=3.810s, p99=4.150s, examples/sec=66.89,
+  loss=6.1699, and HBM peak=26.11 GiB. It is eligible for a
+  5000-step production pass.
+- **Phase 4 production result:** `opt-4-depth64-prod5k` (W&B
+  `6pa81xox`) completed 5000/5000 steps with exit 0 and canonical
+  checkpoint upload. Final metrics: p50=3.8125s, examples/sec=67.39,
+  loss=5.2072, and HBM peak=26.34 GiB.
+- **Phase 6 gate result:** `opt-6-bucket256-400` (W&B `y1m2htgu`)
+  passed 300/300 steps with p50=3.359s, p99=3.869s, examples/sec=72.20,
+  loss=6.846, and HBM peak=26.36 GiB. Two-bucket `[256,400]` sampler
+  reduces theoretical padded tokens by 16.72% vs the fixed 400-frame
+  graph.
+- **Phase 6 validation result:** `opt-6-bucket256-400-1k` (W&B
+  `zqgip8uc`) completed 1000/1000 steps with exit 0. Final metrics:
+  p50=3.393s, p90=3.532s, p99=4.029s, examples/sec=72.64, loss=6.209,
+  HBM peak=26.36 GiB, host RSS=55.68 GiB. Best throughput on record;
+  beats `opt-4-depth64-prod5k` by ~11% p50 and ~7.8% examples/sec.
+  Eligible for a 5000-step production pass.
 
 ## Definition of Done
 
@@ -134,9 +165,14 @@ on v6e-8.**
 
 ### Phase 4 — Activation and depth-chunk sweep
 
-- [ ] Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- [x] Restore HBM instrumentation before further Phase 4 promotion
+  (W&B `enzsklrh`, `mem/peak_gb=21.57`, `mem/hbm_available=1`).
+- [x] Test `xla_grad_checkpoint=false` on the best Phase 3 candidate
+  (rejected: W&B `wvgzewlk`, `29.08 GiB` HBM at internal step 1).
 - [x] Test `depth_chunk_size=32` (`opt-4-depth32`, W&B `i15igq8d`, passed 300-step gate).
-- [ ] Test `depth_chunk_size=64` only if HBM remains safe.
+- [x] Test `depth_chunk_size=64` (`opt-4-depth64`, W&B `5mhltpif`, passed 300-step gate).
+- [x] Validate `depth_chunk_size=64` through 1000 steps (`orz36wmc`, passed).
+- [x] Run `depth_chunk_size=64` 5000-step production pass.
 - [ ] Keep iter 24h defaults if larger candidates regress or OOM.
 
 ### Phase 5 — Input pipeline and transfer profiling
@@ -148,10 +184,23 @@ on v6e-8.**
 
 ### Phase 6 — Static bucketing and padding optimization
 
-- [ ] Quantify padding waste at `max_frames=400`.
-- [ ] If material, test static prewarmed buckets such as `200/300/400`.
-- [ ] Require macro-step-boundary bucket switches and no surprise late
-  compile before promotion.
+- [x] Quantify padding waste at `max_frames=400`
+  (train avg ~271 frames; ~32% padded-token waste).
+- [x] Test static prewarmed buckets `[200,300,400]`
+  (rejected: `opt-6-bucket200-300-400`, W&B `o6cq50k2`, compile-time
+  HBM OOM on the 300-frame shape).
+- [x] Test conservative `[200,400]` buckets
+  (`opt-6-bucket200-400`, W&B `7tzzqhwz`, passed 300-step gate;
+  p50=3.554s, eps=68.85, HBM=27.30 GiB; ~8.93% token reduction).
+- [x] Test multiple-of-64 `[256,400]` buckets
+  (`opt-6-bucket256-400`, W&B `y1m2htgu`, passed 300-step gate;
+  p50=3.359s, eps=72.20, HBM=26.36 GiB; ~16.72% token reduction).
+- [x] Validate `[256,400]` through 1000 steps
+  (`opt-6-bucket256-400-1k`, W&B `zqgip8uc`, p50=3.393s, eps=72.64,
+  HBM=26.36 GiB).
+- [ ] Run `[256,400]` 5000-step production pass.
+- [x] Bucket sampler enforces macro-step-boundary switches and warmup-
+  first ordering so all bucket graphs compile before visible step 1.
 
 ### Phase 7 — Isolated high-risk experiments
 

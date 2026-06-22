@@ -22,6 +22,85 @@
 
 ## Architecture decisions
 
+### 2026-05-15: `[256,400]` bucket sampler passes Phase 6 1000-step gate
+
+**Decision:** Promote the `[256,400]` two-bucket static sampler to the
+Phase 6 production candidate. W&B `zqgip8uc`
+(`v6e-spot-stage2-opt6-bucket256-400-1k`) completed 1000/1000 steps
+with exit 0, p50=3.393s, p90=3.532s, p99=4.029s, examples/sec=72.64,
+final loss=6.209 (text=10.020, audio=5.207), HBM peak=26.36 GiB, and
+host RSS=55.68 GiB. This beats `opt-4-depth64-prod5k` by ~11% p50 and
+~7.8% examples/sec while staying below the 29 GiB HBM abort gate.
+Per `.factory/orchestration/TPU_OPTIMIZATION_SPEC.md` Phase 8, the
+next step is a 5000-step production pass via
+`configs/stage2_tpu_v6e_spot_opt6_bucket256_400_prod5k.yaml`, followed
+by `eval_stage2.py` on the resulting checkpoint.
+
+**Gotcha:** The `[200,300,400]` candidate failed with a compile-time
+HBM OOM specifically on the 300-frame graph (W&B `o6cq50k2`,
+`bf16[1,300,264196]` allocation). Multiples of 64 (256, 400) are
+TPU-friendlier than mixed multiples. Keep new bucket boundaries
+aligned to multiples of 64 unless an HBM profile justifies otherwise.
+
+**Gotcha:** `BucketedMacroBatchSampler` requires
+`train.compile_warmup_steps` >= `len(bucket_frames)` so one zero-LR
+warmup macro-step compiles each static shape before counted step 1.
+The sampler also reorders so the first macro-step from every bucket
+runs during warmup; later epochs reshuffle but never cross macro-step
+boundaries inside a bucket.
+
+### 2026-05-14: `depth_chunk_size=64` completed 5000-step production pass
+
+**Decision:** Promote `depth_chunk_size=64` as the selected optimized
+checkpoint pending evaluation. W&B `6pa81xox`
+(`v6e-spot-stage2-opt4-depth64-prod5k`) completed 5000/5000 steps with
+exit 0 and canonical checkpoint upload to
+`gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-spot-opt-depth64-prod5k/step_005000_final/`.
+Final metrics: p50=3.8125s, examples/sec=67.39, loss=5.2072, and HBM
+peak=26.34 GiB.
+
+**Gotcha:** Keep the 29 GiB HBM abort gate for future depth64-derived
+runs. Depth64 is much faster than prior production configs but remains
+closer to the v6e-8 HBM ceiling than depth32.
+
+### 2026-05-14: TPU HBM telemetry uses `tpu-info` fallback under SPMD
+
+**Decision:** Treat `tpu-info --metric hbm_usage` as the authoritative
+TPU HBM source for single-host v6e-8 SPMD runs. W&B run `enzsklrh`
+validated the patched fallback: 20/20-step HBM smoke completed with
+`mem/hbm_available=1`, `mem/peak_gb=21.57`, and host RSS `56.46 GiB`.
+
+**Gotcha:** This runtime does not expose
+`torch_xla.runtime.using_spmd`; calling it raised `AttributeError` and
+initially produced sentinel metrics. The HBM path must fall back to
+`tpu-info` when `using_spmd` is absent, when `xm.get_memory_info`
+throws, or when it returns all-zero HBM counters.
+
+### 2026-05-14: `xla_grad_checkpoint=false` rejected on v6e-8
+
+**Decision:** Keep `xla_grad_checkpoint=true` for the v6e-8 production
+path. Phase 4 `opt-4-no-ckpt` (W&B `wvgzewlk`) was aborted before the
+300-step gate: after compile warmup it stalled with TPU duty 0%, then
+internal `step=1` showed `29.08 GiB / 31.25 GiB` HBM, crossing the
+29 GiB abort gate.
+
+**Gotcha:** Disabling activation checkpointing is not merely a
+throughput trade-off for this model; it consumes nearly all per-chip
+HBM before the first logged boundary, so it does not produce a safe
+promotion signal.
+
+### 2026-05-14: `depth_chunk_size=64` passed 1000-step Phase 4 validation
+
+**Decision:** `depth_chunk_size=64` is the current fastest Phase 4
+candidate. W&B `5mhltpif` completed the 300-step gate, then W&B
+`orz36wmc` completed 1000/1000 steps with exit 0 and final checkpoint
+upload. Final 1k metrics: p50=3.810s, p99=4.150s, examples/sec=66.89,
+loss=6.1699, and HBM peak=26.11 GiB.
+
+**Gotcha:** The depth64 HBM peak is below the 29 GiB abort gate but much
+closer to the ceiling than depth32. It is eligible for a 5000-step
+production pass, but keep the HBM abort gate at 29 GiB.
+
 ### 2026-05-13: opt-4-depth32 passed 300-step Phase 4 gate
 
 **Decision:** `depth_chunk_size=32` is a viable Phase 4 candidate on
