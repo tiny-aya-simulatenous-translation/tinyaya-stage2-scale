@@ -341,7 +341,11 @@ def save_checkpoint_canonical_final(
     os.makedirs(write_dir, exist_ok=True)
 
     peft_dir = os.path.join(write_dir, "peft_adapter")
-    model.backbone.model.save_pretrained(peft_dir, safe_serialization=False)
+    # safetensors (not pickle): by this point the model is fully on CPU
+    # (the .to("cpu") gather above is the TPU-deadlock fix, not the
+    # serialization format), so safe_serialization is safe here and gives
+    # a publishable adapter_model.safetensors instead of a .bin pickle.
+    model.backbone.model.save_pretrained(peft_dir, safe_serialization=True)
 
     torch.save(model.projection.state_dict(), os.path.join(write_dir, "projection.pt"))
     torch.save(model.depth_decoder.state_dict(), os.path.join(write_dir, "depth_decoder.pt"))

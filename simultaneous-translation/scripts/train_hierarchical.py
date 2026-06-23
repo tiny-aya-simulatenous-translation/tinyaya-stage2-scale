@@ -1040,7 +1040,64 @@ def main():
     # distributed-training#track-all-processes-to-a-single-run
     use_wandb = cfg["logging"]["use_wandb"]
     if use_wandb:
+        import platform
+        import re
+
         import wandb
+
+        # --- Release reproducibility metadata (audit items #6, #8) -----
+        # The VM is not a git checkout, so the commit SHA is injected by
+        # the launcher via GIT_SHA. Versions + dataset provenance + split
+        # counts make the public run reproducible.
+        _versions = {"python": platform.python_version(), "torch": torch.__version__}
+        for _m in ("torch_xla", "transformers", "peft", "numpy", "accelerate", "tokenizers"):
+            try:
+                _versions[_m] = __import__(_m).__version__
+            except Exception:
+                pass
+
+        def _count_lines(_p):
+            try:
+                with open(_p) as _f:
+                    return sum(1 for _ in _f)
+            except Exception:
+                return None
+
+        _run_config = {
+            **cfg,
+            "release_meta": {
+                "versions": _versions,
+                "git_sha": os.environ.get("GIT_SHA", "unknown"),
+                "git_dirty": os.environ.get("GIT_DIRTY", "unknown"),
+                "tpu_topology": "v6e-8" if is_tpu else platform.machine(),
+                "dataset_id": "tiny-aya-translate/tr-hi-mimi-encoded",
+                "dataset_revision": os.environ.get("DATASET_REVISION", "unknown"),
+                "train_rows": _count_lines(cfg["data"].get("train_split")),
+                "val_rows": _count_lines(cfg["data"].get("val_split")),
+            },
+        }
+
+        # Hygiene (audit item #9): never let secret-like content reach the
+        # public run config. cfg is the YAML (clean by construction); this
+        # is belt-and-suspenders before a public release.
+        def _has_secret(obj):
+            if isinstance(obj, dict):
+                return any(_has_secret(k) or _has_secret(v) for k, v in obj.items())
+            if isinstance(obj, (list, tuple)):
+                return any(_has_secret(x) for x in obj)
+            s = str(obj)
+            return bool(re.search(r"hf_[A-Za-z0-9]{20}|\b[0-9a-f]{40}\b", s)) or any(
+                t in s.upper() for t in ("WANDB_API_KEY", "HF_TOKEN", "KAGGLE_KEY")
+            )
+
+        assert not _has_secret(_run_config), "secret-like content in wandb config; aborting publish"
+
+        _wandb_tags = ["stage2", "tr-hi", "speech-to-speech", "v6e-8" if is_tpu else "cpu", "release"]
+        _wandb_notes = (
+            "TinyAya Stage 2 TR<->HI speech-to-speech translation. "
+            f"git={os.environ.get('GIT_SHA', 'unknown')[:12]}. "
+            "LoRA on CohereLabs/tiny-aya-base + Moshi depth decoder + Mimi."
+        )
 
         try:
             host_idx = backend.host_index() if hasattr(backend, "host_index") else 0
@@ -1082,7 +1139,7 @@ def main():
                         x_primary=False,
                         x_update_finish_state=False,
                     ),
-                    config=cfg,
+                    config=_run_config,
                 )
                 print(f"[wandb] worker host {host_idx} attached to shared run {run_id}", flush=True)
             else:
@@ -1097,7 +1154,9 @@ def main():
             wandb.init(
                 project=cfg["logging"]["wandb_project"],
                 name=cfg["logging"]["wandb_run_name"],
-                config=cfg,
+                config=_run_config,
+                tags=_wandb_tags,
+                notes=_wandb_notes,
                 settings=wandb.Settings(
                     mode="shared",
                     x_label="rank_0",
