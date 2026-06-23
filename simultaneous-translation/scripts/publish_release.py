@@ -93,11 +93,13 @@ def log_wandb_artifact(ckpt: Path, run_id: str, project: str, entity: str) -> No
     run.finish()
 
 
-def push_hf(ckpt: Path, repo_id: str, card_path: Path | None) -> None:
+def push_hf(
+    ckpt: Path, repo_id: str, card_path: Path | None, private: bool = True, tag: str | None = None
+) -> None:
     from huggingface_hub import HfApi
 
     api = HfApi(token=os.environ.get("HF_TOKEN"))
-    api.create_repo(repo_id, repo_type="model", exist_ok=True)
+    api.create_repo(repo_id, repo_type="model", exist_ok=True, private=private)
     if card_path and card_path.exists():
         api.upload_file(
             path_or_fileobj=str(card_path),
@@ -110,8 +112,13 @@ def push_hf(ckpt: Path, repo_id: str, card_path: Path | None) -> None:
         repo_id=repo_id,
         repo_type="model",
         ignore_patterns=["*.bin", "*.pt"],  # safetensors only; never base weights
+        commit_message=f"Upload {ckpt.name}" + (f" ({tag})" if tag else ""),
     )
-    print(f"[publish] pushed to https://huggingface.co/{repo_id}")
+    print(f"[publish] pushed to https://huggingface.co/{repo_id} (private={private})")
+    if tag:
+        # Git tag = the version users pin via revision=<tag>.
+        api.create_tag(repo_id, tag=tag, repo_type="model", exist_ok=True)
+        print(f"[publish] created tag {tag}")
 
 
 def main():
@@ -123,6 +130,8 @@ def main():
     ap.add_argument("--hf_repo", default="tiny-aya-translate/tinyaya-stage2-tr-hi")
     ap.add_argument("--model_card", default=None, help="path to README/MODEL_CARD.md")
     ap.add_argument("--push_hf", action="store_true")
+    ap.add_argument("--public", action="store_true", help="create a PUBLIC repo (default: private)")
+    ap.add_argument("--tag", default=None, help="git tag for this version, e.g. v0.1.0")
     args = ap.parse_args()
 
     ckpt = Path(args.checkpoint)
@@ -132,7 +141,7 @@ def main():
         log_wandb_artifact(ckpt, args.wandb_run_id, args.wandb_project, args.wandb_entity)
     if args.push_hf:
         card = Path(args.model_card) if args.model_card else None
-        push_hf(ckpt, args.hf_repo, card)
+        push_hf(ckpt, args.hf_repo, card, private=not args.public, tag=args.tag)
 
 
 if __name__ == "__main__":
