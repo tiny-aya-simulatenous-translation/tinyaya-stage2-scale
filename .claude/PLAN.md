@@ -147,7 +147,7 @@ launch / post-run); ⏳ runtime/ops step still user-gated.
 
 | # | Item | Phase | Status |
 |---|------|-------|--------|
-| 1 | Validation metrics | B | ✅ run_validation rewritten + ungated |
+| 1 | Validation metrics | B/C | ⚠️ inline TPU val OFF (non-finite loss, smoke-confirmed); quality via GPU eval (ASR-BLEU/DNSMOS). run_validation is TPU-safe+throughput-neutral but opt-in (`val_on_tpu`) |
 | 2 | Audio samples | C | ✅ eval_release.py (run post-train on GPU) |
 | 3 | ASR-BLEU + DNSMOS | C | ✅ eval_release.py wraps eval_stage2.py |
 | 4 | per-cb / grad / peak zeros | — | ✅ done (PR #5) |
