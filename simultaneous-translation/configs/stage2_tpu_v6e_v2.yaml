@@ -61,6 +61,10 @@ train:
   # Phase 2 promoted: one compile warmup step before visible step 1.
   compile_warmup_steps: 1
   enable_clip_grad_norm: false
+  # Observability-only grad norm (no clipping). Populates train/grad_norm
+  # without the lever-6 in-place grad scaling that OOM'd at step 258.
+  # Set false to restore the exact iter-18c behaviour (grad_norm == 0).
+  log_grad_norm: true
   fsdp_barrier_hook: false
   depth_chunk_size: 16
   precision: bfloat16

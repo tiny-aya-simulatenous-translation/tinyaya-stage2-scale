@@ -1311,6 +1311,10 @@ def main():
             micro_loss_sum_xla = torch.tensor(0.0, device=device)
             micro_text_xla = torch.tensor(0.0, device=device)
             micro_audio_xla = torch.tensor(0.0, device=device)
+            # Accumulate per-codebook loss on-device too; it is
+            # materialised once per log_every (see logging block), so it
+            # adds no per-micro-step host sync / graph break.
+            micro_per_cb_xla = torch.zeros(num_codebooks, device=device)
         else:
             micro_loss_sum = 0.0
             micro_text = 0.0
@@ -1414,6 +1418,7 @@ def main():
                 micro_loss_sum_xla = micro_loss_sum_xla + losses["loss"].detach()
                 micro_text_xla = micro_text_xla + losses["text_loss"].detach()
                 micro_audio_xla = micro_audio_xla + losses["audio_loss"].detach()
+                micro_per_cb_xla = micro_per_cb_xla + losses["per_codebook_loss"].detach()
             else:
                 micro_loss_sum += losses["loss"].item()
                 micro_text += losses["text_loss"].item()
@@ -1458,7 +1463,18 @@ def main():
             # recompile, this run keeps lever 6 OFF (matches iter 18c)
             # and trades the train/grad_norm metric for run stability.
             enable_clip = bool(cfg["train"].get("enable_clip_grad_norm", False))
-            if enable_clip:
+            # iter 24: decouple grad-norm OBSERVABILITY from clipping.
+            # The lever 6 OOM at step 258 was triggered by the in-place
+            # grad scaling (torch.where + per-param mul_) interacting with
+            # FSDPv2 resharding -- not by the read-only norm reduction.
+            # log_grad_norm computes total_norm for the train/grad_norm
+            # metric WITHOUT mutating grads and WITHOUT a separate
+            # mark_step (it folds into the existing fence below and is
+            # materialised only at the log boundary, so no per-step host
+            # sync). Set log_grad_norm: false to restore the exact
+            # iter-18c-stable behaviour (grad_norm hardwired to 0).
+            log_grad_norm = bool(cfg["train"].get("log_grad_norm", True))
+            if enable_clip or log_grad_norm:
                 max_grad_norm = cfg["train"].get("max_grad_norm", 1.0)
                 total_sq = torch.tensor(0.0, device=device)
                 for p in model.parameters():
@@ -1468,14 +1484,17 @@ def main():
                         p.grad = torch.zeros_like(p)
                     total_sq = total_sq + (p.grad.float() ** 2).sum()
                 total_norm = total_sq.sqrt()
-                clip_coef = max_grad_norm / (total_norm + 1e-6)
-                clip_coef = torch.where(clip_coef < 1.0, clip_coef, torch.ones_like(clip_coef))
-                for p in model.parameters():
-                    if not p.requires_grad:
-                        continue
-                    if p.grad is None:
-                        p.grad = torch.zeros_like(p)
-                    p.grad.mul_(clip_coef)
+                if enable_clip:
+                    clip_coef = max_grad_norm / (total_norm + 1e-6)
+                    clip_coef = torch.where(
+                        clip_coef < 1.0, clip_coef, torch.ones_like(clip_coef)
+                    )
+                    for p in model.parameters():
+                        if not p.requires_grad:
+                            continue
+                        if p.grad is None:
+                            p.grad = torch.zeros_like(p)
+                        p.grad.mul_(clip_coef)
                 with trace_ctx("mark_step"):
                     _xm.mark_step()
                 grad_norm = total_norm
@@ -1505,6 +1524,7 @@ def main():
                 "loss_xla": micro_loss_sum_xla,
                 "text_xla": micro_text_xla,
                 "audio_xla": micro_audio_xla,
+                "per_cb_xla": micro_per_cb_xla,
                 "grad_norm": grad_norm,
             }
         return {
@@ -1541,6 +1561,7 @@ def main():
             "loss": torch.tensor(0.0, device=device),
             "text": torch.tensor(0.0, device=device),
             "audio": torch.tensor(0.0, device=device),
+            "per_cb": torch.zeros(num_codebooks, device=device),
         }
 
     # iter 19 lever 4 fix: profiler capture must happen from a SEPARATE
@@ -1636,6 +1657,7 @@ def main():
             running_xla["loss"] = running_xla["loss"] + macro["loss_xla"] / grad_accum
             running_xla["text"] = running_xla["text"] + macro["text_xla"] / grad_accum
             running_xla["audio"] = running_xla["audio"] + macro["audio_xla"] / grad_accum
+            running_xla["per_cb"] = running_xla["per_cb"] + macro["per_cb_xla"] / grad_accum
         else:
             running["loss"] += macro["loss"] / grad_accum
             running["text"] += macro["text"] / grad_accum
@@ -1654,7 +1676,7 @@ def main():
                         "loss": (running_xla["loss"] / log_every).item(),
                         "text": (running_xla["text"] / log_every).item(),
                         "audio": (running_xla["audio"] / log_every).item(),
-                        "per_cb": [0.0] * num_codebooks,
+                        "per_cb": (running_xla["per_cb"] / log_every).cpu().tolist(),
                     }
             else:
                 avg = {
@@ -1727,6 +1749,7 @@ def main():
                     "loss": torch.tensor(0.0, device=device),
                     "text": torch.tensor(0.0, device=device),
                     "audio": torch.tensor(0.0, device=device),
+                    "per_cb": torch.zeros(num_codebooks, device=device),
                 }
             else:
                 running = {
