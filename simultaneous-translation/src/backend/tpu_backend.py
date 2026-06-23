@@ -625,8 +625,13 @@ class TPUBackend(BackendBase):
             )
 
         for line in out.stdout.splitlines():
+            # tpu-info table cell for chip 0. The HBM unit (GiB) lives in
+            # the column header on newer builds, so the cell is a bare
+            # number ("| 0 | 12.34 |"); older builds embed it ("12.34 GiB
+            # / 31.25 GiB"). Accept both, plus an optional "/ limit".
             match = re.match(
-                r"^\|\s*0\s*\|\s*([0-9.]+)\s*GiB(?:\s*/\s*([0-9.]+)\s*GiB)?\s*\|",
+                r"^\|\s*0\s*\|\s*([0-9.]+)\s*(?:GiB)?"
+                r"(?:\s*/\s*([0-9.]+)\s*(?:GiB)?)?\s*\|",
                 line,
             )
             if not match:
