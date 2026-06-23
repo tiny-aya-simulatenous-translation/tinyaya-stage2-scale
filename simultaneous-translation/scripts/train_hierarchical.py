@@ -1107,8 +1107,12 @@ def main():
             if isinstance(obj, (list, tuple)):
                 return any(_has_secret(x) for x in obj)
             s = str(obj)
-            return bool(re.search(r"hf_[A-Za-z0-9]{20}|\b[0-9a-f]{40}\b", s)) or any(
-                t in s.upper() for t in ("WANDB_API_KEY", "HF_TOKEN", "KAGGLE_KEY")
+            # NB: deliberately do NOT flag bare 40-hex -- the git SHA we
+            # intentionally log (and content hashes) are 40-hex and would
+            # false-positive, aborting the run. HF tokens have a distinctive
+            # hf_ prefix; named secrets are caught by substring.
+            return bool(re.search(r"hf_[A-Za-z0-9]{20,}", s)) or any(
+                t in s.upper() for t in ("WANDB_API_KEY", "HF_TOKEN", "KAGGLE_KEY", "AWS_SECRET")
             )
 
         assert not _has_secret(_run_config), "secret-like content in wandb config; aborting publish"
