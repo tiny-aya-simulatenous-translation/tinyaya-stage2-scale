@@ -122,9 +122,44 @@ def _patch_attention_mask_for_bf16() -> None:
         AttentionMaskConverter._ignore_causal_mask_sdpa = patched_ignore_causal_mask_sdpa
     if hasattr(_mask_utils, "_prepare_4d_attention_mask_for_sdpa"):
         _mask_utils._prepare_4d_attention_mask_for_sdpa = patched_prepare_4d_attention_mask_for_sdpa
+
+    # Cohere2 (transformers 4.49) does NOT use AttentionMaskConverter -- it
+    # builds its 4D causal mask in
+    # Cohere2Model._prepare_4d_causal_attention_mask_with_cache_position
+    # filled with torch.finfo(dtype).min. On XLA bf16, a fully-masked query
+    # row (heavy validation padding) softmaxes over all-finfo.min -> 0/0 =
+    # NaN. The AttentionMaskConverter patch above never covered this path,
+    # which is why training (less intra-batch padding) was finite but the
+    # padded validation batches went NaN. Clamp Cohere2's mask to -1e4 too:
+    # for any row with >=1 valid key the softmax is unchanged; only the
+    # all-masked rows become uniform (finite) instead of NaN.
+    cohere_patched = False
+    try:
+        from transformers.models.cohere2 import modeling_cohere2 as _c2
+
+        for _cls_name in ("Cohere2Model", "Cohere2ForCausalLM"):
+            _cls = getattr(_c2, _cls_name, None)
+            fn = getattr(_cls, "_prepare_4d_causal_attention_mask_with_cache_position", None)
+            if _cls is None or fn is None:
+                continue
+            _orig = fn.__func__ if isinstance(fn, staticmethod) else fn
+
+            def _patched_prep(*args, __orig=_orig, **kwargs):
+                out = __orig(*args, **kwargs)
+                if isinstance(out, torch.Tensor) and out.is_floating_point():
+                    out = out.clamp(min=SAFE_MIN)
+                return out
+
+            _cls._prepare_4d_causal_attention_mask_with_cache_position = staticmethod(
+                _patched_prep
+            )
+            cohere_patched = True
+    except Exception as exc:  # pragma: no cover - depends on transformers version
+        print(f"[bf16-mask-patch] Cohere2 mask patch skipped: {exc!r}", flush=True)
+
     print(
         "[bf16-mask-patch] AttentionMaskConverter patched "
-        "(clamp >= -1e4; SDPA mask elision disabled)",
+        f"(clamp >= -1e4; SDPA mask elision disabled; cohere2={cohere_patched})",
         flush=True,
     )
 
@@ -559,6 +594,7 @@ def run_validation(
     is_ddp=False,
     backend=None,
     max_batches=None,
+    val_debug=False,
 ) -> dict:
     model.eval()
     # Audit item #1: TPU-safe validation. All reductions stay as on-device
@@ -585,6 +621,16 @@ def run_validation(
         mask = batch["attention_mask"].to(device)
         loss_mask = batch["loss_mask"].to(device)
 
+        # Mark input sharding for TPU SPMD -- the training forward does this
+        # (mark_sharding at the macro-step); without it under FSDPv2 the
+        # partitioner mishandles the val inputs against the sharded params
+        # and the forward goes non-finite (CPU eager forward is finite).
+        if is_tpu and backend is not None and hasattr(backend, "mark_sharding"):
+            backend.mark_sharding(text_ids, ("fsdp", None))
+            backend.mark_sharding(all_codes, ("fsdp", None, None))
+            backend.mark_sharding(mask, ("fsdp", None))
+            backend.mark_sharding(loss_mask, ("fsdp", None))
+
         # Parallel streams (Moshi-style)
         if "user_audio_codes" in batch:
             user_cb0 = batch["user_audio_codes"][:, 0, :].to(device)
@@ -609,7 +655,7 @@ def run_validation(
                 full_audio_codes=full_model_codes[:, :num_codebooks, :] if full_model_codes is not None else all_codes[:, :num_codebooks, :],
                 depth_chunk_size=depth_chunk_size,
             )
-            text_logits, audio_logits, _ = output
+            text_logits, audio_logits, hidden = output[0], output[1], output[2]
             audio_targets = full_model_codes[:, :num_codebooks, :] if full_model_codes is not None else all_codes[:, :num_codebooks, :]
             losses = compute_hierarchical_translation_loss(
                 text_logits,
@@ -621,6 +667,18 @@ def run_validation(
                 text_weight=loss_cfg["text_weight"],
                 audio_weight=loss_cfg["audio_weight"],
             )
+            # First-batch NaN localization (one host sync; diagnostic only).
+            # Pinpoints whether the non-finite originates in the backbone
+            # (hidden -> attention/mask), the heads (logits), or the loss.
+            if n == 0 and val_debug:
+                print(
+                    "  [val-debug] finite: "
+                    f"hidden={bool(torch.isfinite(hidden).all())} "
+                    f"text_logits={bool(torch.isfinite(text_logits).all())} "
+                    f"audio_logits={bool(torch.isfinite(audio_logits).all())} "
+                    f"loss={bool(torch.isfinite(losses['loss']).all())}",
+                    flush=True,
+                )
         # Finite-guarded accumulation: a degenerate val batch (e.g. all-pad,
         # loss_mask.sum()==0) makes the loss-fn normalisation divide by zero
         # -> NaN, which would poison the whole pass. Skip such batches via a
@@ -1935,6 +1993,7 @@ def main():
                 is_ddp=False,
                 backend=backend,
                 max_batches=cfg["logging"].get("val_max_batches"),
+                val_debug=cfg["logging"].get("val_debug", False),
             )
             # run_validation returns {} if every batch was non-finite -- a
             # failed/empty val must never crash the training run.

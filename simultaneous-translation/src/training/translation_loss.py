@@ -68,12 +68,20 @@ def compute_hierarchical_translation_loss(
     else:
         text_loss = torch.zeros((), device=tl.device)
 
-    # Audio loss — per-codebook mean CE on target positions
+    # Audio loss — per-codebook mean CE on target positions.
+    # Targets carry SILENCE_TOKEN (audio_vocab_size, e.g. 2048) at non-speech
+    # / pad frames, which is OUT OF BOUNDS for the V_audio-class head. On XLA
+    # an out-of-bounds cross_entropy gather is undefined behaviour and yields
+    # non-deterministic NaN (finite when materialised alone, NaN when fused) --
+    # the validation NaN. Those positions are masked out by loss_mask, so
+    # clamping the target into range changes nothing supervised; it just
+    # removes the UB.
+    at_safe = at.clamp(max=V_audio - 1)
     per_cb = []
     for c in range(num_cb):
         ce_c = F.cross_entropy(
             al[:, c].reshape(-1, V_audio).float(),
-            at[:, c].reshape(-1),
+            at_safe[:, c].reshape(-1),
             reduction="none",
         ).view(B, Tm1)
         per_cb.append(_masked_sum(ce_c) / denom)
