@@ -10,32 +10,45 @@ authors = [
 license = { text = "Apache-2.0" }
 
 dependencies = [
+    # TPU stack: torch/torch-xla move in lockstep with each other and
+    # with libtpu. torch-xla's latest release is 2.9.0, which pins
+    # torch==2.9.0, so this trio stays at 2.9.0 (already newest usable).
     "torch==2.9.0",
     "torch-xla[tpu]==2.9.0",
-    "transformers>=4.45,<4.50",
-    "peft>=0.13,<0.16",
-    "accelerate>=1.0,<2.0",
-    "soundfile==0.12.1",
-    "scipy==1.14.1",
-    "librosa==0.10.2",
-    "wandb>=0.18,<0.20",
-    "gcsfs>=2024.10.0",
-    "huggingface-hub[cli]>=0.26",
+    # Pinned to the validated 4.49 line. The model code is coupled to
+    # transformers' Cohere2 + Moshi internals, and live v6e-8 smoke runs
+    # proved newer lines break it in multiple places:
+    #   * 5.x   -> @capture_outputs hands the final norm a tuple.
+    #   * 4.57  -> Cohere2 reads decoder_layer.attention_type (fixable) AND
+    #              MoshiDepthDecoder/MoshiFlexibleLinear changed shape
+    #              (IndexError inside transformers' moshi code).
+    # 4.49.0 is the version the full 15k-step run was trained on.
+    "transformers>=4.49,<4.50",
+    "peft>=0.19,<1.0",
+    "accelerate>=1.14,<2.0",
+    "soundfile==0.14.0",
+    "scipy==1.18.0",
+    "librosa==0.11.0",
+    "wandb>=0.27,<1.0",
+    "gcsfs>=2026.6.0",
+    # transformers<5 requires huggingface-hub<1.0, so hub stays on its
+    # latest 0.x (v1's CLI rename to `hf` does not apply on this line).
+    "huggingface-hub[cli]>=0.34,<1.0",
     "pyyaml>=6.0",
-    "sacrebleu==2.4.3",
+    "sacrebleu==2.6.0",
     "tqdm>=4.66",
-    "numpy<2.0",
+    "numpy>=2.0,<3.0",
 ]
 
 [project.optional-dependencies]
 eval = [
     "speechmos>=0.0.1",
-    "datasets>=3.0",
+    "datasets>=5.0",
     "torchaudio==2.9.0",
 ]
 dev = [
-    "ruff>=0.7",
-    "pytest>=8.0",
+    "ruff>=0.15",
+    "pytest>=9.0",
 ]
 
 [build-system]
