@@ -130,7 +130,9 @@ Mimi decode) is in `scripts/eval_stage2.py` (`ar_generate`).
 
 ## Links
 
-- **Training run (W&B)**: _TBD (new release run)_
+- **Training run (W&B)**: https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/b7fr72u5
+  — full config, loss curves, system/throughput metrics, and the model
+  artifact (`tinyaya-stage2-tr-hi-v6e-v2:v0`).
 - **Checkpoints (GCS)**: `gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-v2/`
 - **Dataset**: https://huggingface.co/datasets/tiny-aya-translate/tr-hi-mimi-encoded
 - **Code**: https://github.com/tiny-aya-simulatenous-translation/tinyaya-stage2-scale
