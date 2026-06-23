@@ -92,6 +92,9 @@ logging:
   save_every: 1000
   audio_every: 2000
   val_every: 1000
+  # TPU-safe validation (item #1): cap each periodic val pass to N batches
+  # to bound cost. 50 batches * (b=8 * 8 chips) ~= 3,200 val samples.
+  val_max_batches: 50
   save_dir: gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-v2
   keep_last_n: 5
   use_wandb: true

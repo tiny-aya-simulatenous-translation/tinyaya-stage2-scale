@@ -311,6 +311,7 @@ DEFAULTS = {
         "save_every": 1000,
         "audio_every": 1000,
         "val_every": 1000,
+        "val_max_batches": 50,
         "save_dir": "checkpoints/stage2_scale",
         "wandb_project": "tinyaya-s2s",
         "wandb_run_name": "stage2_scale",
@@ -552,14 +553,26 @@ def run_validation(
     *,
     is_ddp=False,
     backend=None,
+    max_batches=None,
 ) -> dict:
     model.eval()
-    sums = {"loss": 0.0, "text": 0.0, "audio": 0.0}
+    # Audit item #1: TPU-safe validation. All reductions stay as on-device
+    # accumulator tensors (no per-batch .item()/.any()/boolean-indexing),
+    # so XLA neither stalls on host syncs nor recompiles on dynamic shapes.
+    # Materialised exactly once at the end. ``max_batches`` caps the pass.
+    is_tpu = "xla" in str(device)
+    if is_tpu:
+        import torch_xla.core.xla_model as _xm
+    acc_loss = torch.zeros((), device=device)
+    acc_text = torch.zeros((), device=device)
+    acc_audio = torch.zeros((), device=device)
     per_cb_sum = torch.zeros(num_codebooks, device=device)
-    cb0_correct = 0.0
-    cb0_total = 0.0
+    cb0_correct = torch.zeros((), device=device)
+    cb0_total = torch.zeros((), device=device)
     n = 0
     for batch in val_loader:
+        if max_batches is not None and n >= max_batches:
+            break
         text_ids = batch["text_ids"].to(device)
         all_codes = batch["audio_codes"].to(device)
         cb0 = all_codes[:, 0, :]
@@ -602,42 +615,50 @@ def run_validation(
                 text_weight=loss_cfg["text_weight"],
                 audio_weight=loss_cfg["audio_weight"],
             )
-        sums["loss"] += losses["loss"].item()
-        sums["text"] += losses["text_loss"].item()
-        sums["audio"] += losses["audio_loss"].item()
-        per_cb_sum += losses["per_codebook_loss"]
+        acc_loss = acc_loss + losses["loss"].detach()
+        acc_text = acc_text + losses["text_loss"].detach()
+        acc_audio = acc_audio + losses["audio_loss"].detach()
+        per_cb_sum = per_cb_sum + losses["per_codebook_loss"].detach()
 
-        # cb0 teacher-forced acc on target positions (shifted next-token)
+        # cb0 teacher-forced acc on target positions (shifted next-token).
+        # Static-shape masked reduction -- NO boolean indexing (which
+        # would produce a dynamic-length tensor and recompile on XLA).
         pred = audio_logits[:, 0, :-1].argmax(dim=-1)  # [B, T-1]
         target = all_codes[:, 0, 1:]
-        m = loss_mask[:, 1:].bool() & mask[:, 1:].bool()
-        if m.any():
-            cb0_correct += (pred[m] == target[m]).float().sum().item()
-            cb0_total += m.float().sum().item()
+        m = (loss_mask[:, 1:].bool() & mask[:, 1:].bool()).to(acc_loss.dtype)
+        cb0_correct = cb0_correct + ((pred == target).to(m.dtype) * m).sum()
+        cb0_total = cb0_total + m.sum()
         n += 1
+        if is_tpu:
+            _xm.mark_step()
 
-    # all-reduce across ranks so every rank sees identical metrics
-    if backend and backend.world_size() > 1:
-        for k in sums:
-            t = torch.tensor(sums[k], device=device)
-            t = backend.reduce_mean(t) * backend.world_size()  # reduce_mean then scale back to sum
-            sums[k] = t.item()
-        # For per_cb_sum and counts, use the same pattern
-        t = torch.tensor([cb0_correct, cb0_total, float(n)], device=device)
-        t = backend.reduce_mean(t) * backend.world_size()
-        cb0_correct, cb0_total, n = t.tolist()
-        per_cb_sum_t = backend.reduce_mean(per_cb_sum) * backend.world_size()
-        per_cb_sum = per_cb_sum_t
-
-    model.train()
     if n == 0:
+        model.train()
         return {}
+
+    # Multi-host DDP all-reduce so every rank sees identical metrics.
+    # No-op under single-host v6e-8 SPMD (world_size == 1; the 8 chips are
+    # reduced transparently by the partitioner).
+    if backend and backend.world_size() > 1:
+        ws = backend.world_size()
+        acc_loss = backend.reduce_mean(acc_loss) * ws
+        acc_text = backend.reduce_mean(acc_text) * ws
+        acc_audio = backend.reduce_mean(acc_audio) * ws
+        per_cb_sum = backend.reduce_mean(per_cb_sum) * ws
+        cb0_correct = backend.reduce_mean(cb0_correct) * ws
+        cb0_total = backend.reduce_mean(cb0_total) * ws
+
+    inv = 1.0 / n
+    # Single host-sync point for the whole validation pass.
+    cc = float(cb0_correct.item())
+    ct = float(cb0_total.item())
+    model.train()
     return {
-        "val/loss": sums["loss"] / n,
-        "val/text_loss": sums["text"] / n,
-        "val/audio_loss": sums["audio"] / n,
-        "val/cb0_acc": (cb0_correct / cb0_total) if cb0_total > 0 else 0.0,
-        "val/per_codebook_loss": (per_cb_sum / n).detach().cpu().tolist(),
+        "val/loss": (acc_loss * inv).item(),
+        "val/text_loss": (acc_text * inv).item(),
+        "val/audio_loss": (acc_audio * inv).item(),
+        "val/cb0_acc": (cc / ct) if ct > 0 else 0.0,
+        "val/per_codebook_loss": (per_cb_sum * inv).detach().cpu().tolist(),
     }
 
 
@@ -1865,14 +1886,12 @@ def main():
                 print(f"  demo failed: {e}")
 
         # ---- validation
-        # Skip on TPU for the canary: run_validation contains 4 `.item()`
-        # calls inside the per-batch loop plus boolean-indexing that
-        # produces dynamic shapes -- both trigger XLA cpu_fallback /
-        # recompile cascades. Validation works correctly on GPU; for a
-        # TPU canary the training loss curve is the signal we need.
-        # Re-enable once the validation loop is rewritten with
-        # accumulator tensors instead of .item() (mirroring patch 7).
-        if val_loader is not None and val_every and step % val_every == 0 and not is_tpu:
+        # Audit item #1: validation now runs on TPU too. run_validation
+        # was rewritten (patch-7 pattern) to use on-device accumulator
+        # tensors with a single end-of-pass host sync, so it no longer
+        # triggers XLA cpu_fallback / recompile cascades. Capped at
+        # `val_max_batches` to bound the periodic cost.
+        if val_loader is not None and val_every and step % val_every == 0:
             if is_main:
                 print(f"  running validation at step {step}...")
             val = run_validation(
@@ -1884,6 +1903,7 @@ def main():
                 cfg["loss"],
                 is_ddp=False,
                 backend=backend,
+                max_batches=cfg["logging"].get("val_max_batches"),
             )
             if is_main:
                 print(f"  val/loss={val['val/loss']:.4f} cb0_acc={val['val/cb0_acc'] * 100:.1f}%")
