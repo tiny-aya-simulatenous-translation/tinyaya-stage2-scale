@@ -26,6 +26,228 @@ moved to `.claude/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-06-24T13:46:18Z | feat/training-metrics-sweeps@da319ed | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/training/checkpointing.py`
+
+
+## 2026-06-24T13:43:04Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T13:42:29Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T13:41:05Z | feat/training-metrics-sweeps@da319ed | done | exec
+P=ml-pipelines-315702; \
+
+
+## 2026-06-24T13:32:07Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T13:31:51Z | feat/training-metrics-sweeps@da319ed | done | exec
+P=ml-pipelines-315702; \
+
+
+## 2026-06-24T13:26:06Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T13:24:44Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T13:23:42Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T13:23:19Z | feat/training-metrics-sweeps@da319ed | done | edit
+edited `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/stage2-capacity-and-metrics-plan.md`
+
+
+## 2026-06-24T13:21:39Z | feat/training-metrics-sweeps@da319ed | done | edit
+edited `/tmp/probe_mae.py`
+
+
+## 2026-06-24T13:21:04Z | feat/training-metrics-sweeps@da319ed | done | edit
+edited `/tmp/probe_mae.py`
+
+
+## 2026-06-24T13:18:55Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T13:13:26Z | feat/training-metrics-sweeps@da319ed | done | edit
+created `/tmp/probe_mae.py`
+
+
+## 2026-06-24T13:09:22Z | feat/training-metrics-sweeps@da319ed | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation && \
+
+
+## 2026-06-24T12:54:25Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T12:39:46Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T12:39:34Z | feat/training-metrics-sweeps@da319ed | done | exec
+N=tinyaya-training-v6e8-ue1d; Z=us-east1-d; P=ml-pipelines-315702; \
+
+
+## 2026-06-24T12:07:46Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T12:07:36Z | feat/training-metrics-sweeps@da319ed | done | exec
+P=ml-pipelines-315702; \
+
+
+## 2026-06-24T12:06:49Z | feat/training-metrics-sweeps@da319ed | done | exec
+\
+
+
+## 2026-06-24T12:06:18Z | feat/training-metrics-sweeps@da319ed | done | exec
+Q=tinyaya-training-v6e8-ue1d-qr; Z=us-east1-d; P=ml-pipelines-315702; \
+
+
+## 2026-06-24T12:05:57Z | feat/training-metrics-sweeps@da319ed | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale && \
+
+
+## 2026-06-24T12:00:55Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T12:00:44Z | feat/training-metrics-sweeps@da319ed | done | exec
+Q=tinyaya-training-v6e8-euw4a-qr; Z=europe-west4-a; P=ml-pipelines-315702; \
+
+
+## 2026-06-24T12:00:20Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T11:48:08Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T11:47:58Z | feat/training-metrics-sweeps@da319ed | done | exec
+Q=tinyaya-training-v6e8-euw4a-qr; Z=europe-west4-a; P=ml-pipelines-315702; \
+
+
+## 2026-06-24T11:31:59Z | feat/training-metrics-sweeps@da319ed | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T11:31:43Z | feat/training-metrics-sweeps@da319ed | done | exec
+Q=tinyaya-training-v6e8-euw4a-qr; Z=europe-west4-a; P=ml-pipelines-315702; \
+
+
+## 2026-06-24T11:30:14Z | feat/training-metrics-sweeps@da319ed | done | exec
+\
+
+
 ## 2026-06-24T11:29:42Z | feat/training-metrics-sweeps@4728d4e | done | exec
 cd /home/cataluna84/Workspace/tinyaya-stage2-scale && \
 
