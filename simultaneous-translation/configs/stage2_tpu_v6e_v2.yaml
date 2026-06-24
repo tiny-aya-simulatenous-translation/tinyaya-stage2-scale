@@ -120,6 +120,11 @@ logging:
   # the nan_to_num guard in translation_loss._masked_sum. Perf caveat: the
   # flag turns off one XLA optimization, a small per-step cost over 22 h.
   val_on_tpu: true
+  # Stability dashboard (Phase 2): per-group grad/param norms, update-to-weight
+  # ratio, Adam-v drift, loss/grad spike ratios, non-finite guard (diag/* in
+  # W&B) + per-codebook val accuracy. On-device, computed only at log
+  # boundaries (cheap). Set false to disable the extra reductions.
+  diag_metrics: true
   save_dir: gs://tinyaya-stage2-tpu/checkpoints/stage2-tpu-v6e-v2
   keep_last_n: 5
   use_wandb: true

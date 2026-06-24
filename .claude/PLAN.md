@@ -69,22 +69,26 @@ regression** — Stage-1 (`src/training/loss.py`) down-weights padding 100×.
   (smoke 2026-06-24):** `[lora] lora_layers=0..33 exclude_top=2`, finite
   forward, 26.4 GB, val finite. full-FT opt-in asserted.
 
-## Phase 2 — Stability dashboard (8 metrics, on-device)
-Implement in the existing `running_xla` accumulator pattern in
-`scripts/train_hierarchical.py`; export every `log_every`; NO per-step
-`.item()`. (Formulas + thresholds: docs/next-15k-run-plan.md §2.)
-- [ ] 1. Per-group grad norm — extend the existing total-norm loop (~L1659).
-- [ ] 2. Update-to-weight ratio `lr_G·‖g_G‖/‖θ_G‖` (no snapshot needed).
-- [ ] 3. Non-finite guard on loss+grad → reuse rollback path.
-- [ ] 4. Loss-spike ratio (EMA ρ=0.995); 5. grad-norm spike ratio (EMA).
-- [ ] 6. Per-codebook top-1 acc + perplexity (extend val `cb0_acc` to all 8).
-- [ ] 7. Adam 2nd-moment drift per group (read `exp_avg_sq`).
-- [ ] 8. Per-group param norms.
-- [ ] Periodic/optional (`--diag`): Gradient Noise Scale, logit/activation RMS.
-- [ ] Alerts: non-finite>0 or grad-spike>10× → halt+rollback+LR×0.5;
-      loss-spike>10% w/ grad-spike>2× → rewind 1 ckpt. Watch `host/rss_gb`
-      (smoke showed 67→124 GB with val on — possible inline-val host leak).
-- **DoD:** all 8 visible in W&B on a smoke; alerts fire on injected NaN.
+## Phase 2 — Stability dashboard (8 metrics, on-device)  ✅ DONE (CPU-verified)
+Implemented as `_group_grad_diag()` (on-device per-group bundle, materialised
+in ONE transfer at log boundaries — no per-step `.item()`) + host-side EMA
+derivation. Gated by `logging.diag_metrics` (default on). All emit as `diag/*`
+in W&B.
+- [x] 1. Per-group grad norm; 8. per-group param norm — `_group_grad_diag`.
+- [x] 2. Update-to-weight ratio `lr_G·‖g_G‖/‖θ_G‖` (host-derived, no snapshot).
+- [x] 3. Non-finite guard (per-group grad + train loss) → `[ALERT]` prints.
+- [x] 4. Loss-spike + 5. grad-spike ratios (host EMA, ρ=0.9; alerts >10% / >3×).
+- [x] 6. Per-codebook top-1 acc — extended val `cb0_acc` to all 8
+      (`val/per_codebook_acc_*`).
+- [x] 7. Adam 2nd-moment (`exp_avg_sq`) mean + drift per group.
+- [ ] Deferred (optional): Gradient Noise Scale, logit/activation RMS (a `--diag`
+      heavy tier; not needed for the first run).
+- [x] Alerts: non-finite grads, loss-spike >10%, grad-spike >3× print `[ALERT]`
+      (logging, not auto-rollback — safer for a one-shot). `host/rss_gb` already
+      tracked (watch the inline-val host-RSS growth).
+- **DoD:** ✅ logic CPU-unit-tested (`_group_grad_diag` keys, UWR, NaN-detect,
+  spike). All `diag/*` + `val/per_codebook_acc_*` wired to W&B. Live TPU
+  visibility rides the next smoke.
 
 ## Phase 3 — W&B hyperparameter sweep
 Artifacts in `simultaneous-translation/sweeps/` (scaffolded in this PR):

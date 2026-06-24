@@ -26,6 +26,93 @@ moved to `.claude/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-06-24T11:18:48Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/PLAN.md`
+
+
+## 2026-06-24T11:16:29Z | feat/training-metrics-sweeps@e689e3a | done | edit
+created `/tmp/test_diag.py`
+
+
+## 2026-06-24T11:15:49Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_valfix_smoke.yaml`
+
+
+## 2026-06-24T11:15:22Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_v2.yaml`
+
+
+## 2026-06-24T11:14:23Z | feat/training-metrics-sweeps@e689e3a | done | exec
+python3 -c "import ast; ast.parse(open('scripts/train_hierarchical.py').read()); print('train_hierarchical.py: parse OK')"
+
+
+## 2026-06-24T11:13:55Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-24T11:12:58Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-24T11:12:40Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-24T11:12:30Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-24T11:12:13Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-24T11:09:54Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-24T11:09:22Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-24T11:07:44Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-24T11:07:02Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-24T11:06:24Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-24T11:05:49Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-24T11:04:43Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-24T10:58:50Z | feat/training-metrics-sweeps@e689e3a | fail | verify
+verify: 9 passed, 3 failed out of 12 on Stop
+
+FAIL [1] # every AGENTS.md tier exists and is non-empty
+    EMPTY: phase-3-data-generation-pipeline/AGENTS.md
+FAIL [123] # all Python source compiles
+    py_compile.py: error: the following arguments are required: filenames
+FAIL [2] # CLI entry point loads and prints help
+    python3: can't open file '/home/cataluna84/Workspace/tinyaya-stage2-scale/phase-3-data-generation-pipeline/cli.py': [Errno 2] No such file or directory
+
+
+## 2026-06-24T10:58:18Z | feat/training-metrics-sweeps@e689e3a | done | edit
+edited `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/stage2-capacity-and-metrics-plan.md`
+
+
+## 2026-06-24T10:58:04Z | feat/training-metrics-sweeps@e689e3a | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale && git add .claude/PLAN.md .claude/PROGRESS.md \
+
+
 ## 2026-06-24T10:57:40Z | feat/training-metrics-sweeps@d0e46fb | done | edit
 edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/PLAN.md`
 
