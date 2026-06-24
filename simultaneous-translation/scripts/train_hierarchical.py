@@ -122,9 +122,44 @@ def _patch_attention_mask_for_bf16() -> None:
         AttentionMaskConverter._ignore_causal_mask_sdpa = patched_ignore_causal_mask_sdpa
     if hasattr(_mask_utils, "_prepare_4d_attention_mask_for_sdpa"):
         _mask_utils._prepare_4d_attention_mask_for_sdpa = patched_prepare_4d_attention_mask_for_sdpa
+
+    # Cohere2 (transformers 4.49) does NOT use AttentionMaskConverter -- it
+    # builds its 4D causal mask in
+    # Cohere2Model._prepare_4d_causal_attention_mask_with_cache_position
+    # filled with torch.finfo(dtype).min. On XLA bf16, a fully-masked query
+    # row (heavy validation padding) softmaxes over all-finfo.min -> 0/0 =
+    # NaN. The AttentionMaskConverter patch above never covered this path,
+    # which is why training (less intra-batch padding) was finite but the
+    # padded validation batches went NaN. Clamp Cohere2's mask to -1e4 too:
+    # for any row with >=1 valid key the softmax is unchanged; only the
+    # all-masked rows become uniform (finite) instead of NaN.
+    cohere_patched = False
+    try:
+        from transformers.models.cohere2 import modeling_cohere2 as _c2
+
+        for _cls_name in ("Cohere2Model", "Cohere2ForCausalLM"):
+            _cls = getattr(_c2, _cls_name, None)
+            fn = getattr(_cls, "_prepare_4d_causal_attention_mask_with_cache_position", None)
+            if _cls is None or fn is None:
+                continue
+            _orig = fn.__func__ if isinstance(fn, staticmethod) else fn
+
+            def _patched_prep(*args, __orig=_orig, **kwargs):
+                out = __orig(*args, **kwargs)
+                if isinstance(out, torch.Tensor) and out.is_floating_point():
+                    out = out.clamp(min=SAFE_MIN)
+                return out
+
+            _cls._prepare_4d_causal_attention_mask_with_cache_position = staticmethod(
+                _patched_prep
+            )
+            cohere_patched = True
+    except Exception as exc:  # pragma: no cover - depends on transformers version
+        print(f"[bf16-mask-patch] Cohere2 mask patch skipped: {exc!r}", flush=True)
+
     print(
         "[bf16-mask-patch] AttentionMaskConverter patched "
-        "(clamp >= -1e4; SDPA mask elision disabled)",
+        f"(clamp >= -1e4; SDPA mask elision disabled; cohere2={cohere_patched})",
         flush=True,
     )
 
@@ -311,6 +346,12 @@ DEFAULTS = {
         "save_every": 1000,
         "audio_every": 1000,
         "val_every": 1000,
+        "val_max_batches": 50,
+        # Inline validation on TPU is opt-in: the rewritten run_validation is
+        # TPU-safe + throughput-neutral, but the val forward currently yields
+        # a non-finite loss on TPU (under investigation). Release quality
+        # comes from the GPU eval (eval_release.py). On GPU, val always runs.
+        "val_on_tpu": False,
         "save_dir": "checkpoints/stage2_scale",
         "wandb_project": "tinyaya-s2s",
         "wandb_run_name": "stage2_scale",
@@ -552,19 +593,47 @@ def run_validation(
     *,
     is_ddp=False,
     backend=None,
+    max_batches=None,
+    val_debug=False,
 ) -> dict:
+    # @torch.no_grad() (above): val needs no gradients; this was already in
+    # place, so the autograd-tape graph theory is NOT the residual cause.
+    # The genuinely new lever for the inline-TPU-val NaN is the launcher's
+    # XLA_NO_SPECIAL_SCALARS=1 (disables XLA's assume-no-NaN/Inf rewrites).
     model.eval()
-    sums = {"loss": 0.0, "text": 0.0, "audio": 0.0}
+    # Audit item #1: TPU-safe validation. All reductions stay as on-device
+    # accumulator tensors (no per-batch .item()/.any()/boolean-indexing),
+    # so XLA neither stalls on host syncs nor recompiles on dynamic shapes.
+    # Materialised exactly once at the end. ``max_batches`` caps the pass.
+    is_tpu = "xla" in str(device)
+    if is_tpu:
+        import torch_xla.core.xla_model as _xm
+    acc_loss = torch.zeros((), device=device)
+    acc_text = torch.zeros((), device=device)
+    acc_audio = torch.zeros((), device=device)
     per_cb_sum = torch.zeros(num_codebooks, device=device)
-    cb0_correct = 0.0
-    cb0_total = 0.0
+    cb0_correct = torch.zeros((), device=device)
+    cb0_total = torch.zeros((), device=device)
+    n_finite = torch.zeros((), device=device)
     n = 0
     for batch in val_loader:
+        if max_batches is not None and n >= max_batches:
+            break
         text_ids = batch["text_ids"].to(device)
         all_codes = batch["audio_codes"].to(device)
         cb0 = all_codes[:, 0, :]
         mask = batch["attention_mask"].to(device)
         loss_mask = batch["loss_mask"].to(device)
+
+        # Mark input sharding for TPU SPMD -- the training forward does this
+        # (mark_sharding at the macro-step); without it under FSDPv2 the
+        # partitioner mishandles the val inputs against the sharded params
+        # and the forward goes non-finite (CPU eager forward is finite).
+        if is_tpu and backend is not None and hasattr(backend, "mark_sharding"):
+            backend.mark_sharding(text_ids, ("fsdp", None))
+            backend.mark_sharding(all_codes, ("fsdp", None, None))
+            backend.mark_sharding(mask, ("fsdp", None))
+            backend.mark_sharding(loss_mask, ("fsdp", None))
 
         # Parallel streams (Moshi-style)
         if "user_audio_codes" in batch:
@@ -590,7 +659,7 @@ def run_validation(
                 full_audio_codes=full_model_codes[:, :num_codebooks, :] if full_model_codes is not None else all_codes[:, :num_codebooks, :],
                 depth_chunk_size=depth_chunk_size,
             )
-            text_logits, audio_logits, _ = output
+            text_logits, audio_logits, hidden = output[0], output[1], output[2]
             audio_targets = full_model_codes[:, :num_codebooks, :] if full_model_codes is not None else all_codes[:, :num_codebooks, :]
             losses = compute_hierarchical_translation_loss(
                 text_logits,
@@ -602,42 +671,88 @@ def run_validation(
                 text_weight=loss_cfg["text_weight"],
                 audio_weight=loss_cfg["audio_weight"],
             )
-        sums["loss"] += losses["loss"].item()
-        sums["text"] += losses["text_loss"].item()
-        sums["audio"] += losses["audio_loss"].item()
-        per_cb_sum += losses["per_codebook_loss"]
+            # First-batch NaN localization (one host sync; diagnostic only).
+            # Pinpoints whether the non-finite originates in the backbone
+            # (hidden -> attention/mask), the heads (logits), or the loss.
+            # IMPORTANT: a pre-sync ``isfinite().all()`` is an UNRELIABLE probe
+            # on XLA -- it can read a different materialization than the
+            # accumulator's later host transfer (pytorch/xla#1665, #2516), which
+            # is exactly what misled the previous debug session. Force the
+            # forward+loss to actually execute (mark_step) and read on host
+            # via .item() so this line reflects the same value the accumulator
+            # will see.
+            if n == 0 and val_debug:
+                if is_tpu:
+                    _xm.mark_step()
+                fin = lambda t: bool(torch.isfinite(t).all().item())
+                print(
+                    "  [val-debug] finite: "
+                    f"hidden={fin(hidden)} "
+                    f"text_logits={fin(text_logits)} "
+                    f"audio_logits={fin(audio_logits)} "
+                    f"loss={fin(losses['loss'])}",
+                    flush=True,
+                )
+        # Finite-guarded accumulation: a degenerate val batch (e.g. all-pad,
+        # loss_mask.sum()==0) makes the loss-fn normalisation divide by zero
+        # -> NaN, which would poison the whole pass. Skip such batches via a
+        # device-side mask (no host sync) and divide by the finite count.
+        bl = losses["loss"].detach()
+        finite = torch.isfinite(bl)
+        zero = torch.zeros_like(bl)
+        acc_loss = acc_loss + torch.where(finite, bl, zero)
+        acc_text = acc_text + torch.where(finite, losses["text_loss"].detach(), zero)
+        acc_audio = acc_audio + torch.where(finite, losses["audio_loss"].detach(), zero)
+        pcb = losses["per_codebook_loss"].detach()
+        per_cb_sum = per_cb_sum + torch.where(finite, pcb, torch.zeros_like(pcb))
+        n_finite = n_finite + finite.to(acc_loss.dtype)
 
-        # cb0 teacher-forced acc on target positions (shifted next-token)
+        # cb0 teacher-forced acc on target positions (shifted next-token).
+        # Static-shape masked reduction -- NO boolean indexing (which
+        # would produce a dynamic-length tensor and recompile on XLA).
         pred = audio_logits[:, 0, :-1].argmax(dim=-1)  # [B, T-1]
         target = all_codes[:, 0, 1:]
-        m = loss_mask[:, 1:].bool() & mask[:, 1:].bool()
-        if m.any():
-            cb0_correct += (pred[m] == target[m]).float().sum().item()
-            cb0_total += m.float().sum().item()
+        m = (loss_mask[:, 1:].bool() & mask[:, 1:].bool()).to(acc_loss.dtype)
+        cb0_correct = cb0_correct + ((pred == target).to(m.dtype) * m).sum()
+        cb0_total = cb0_total + m.sum()
         n += 1
+        if is_tpu:
+            _xm.mark_step()
 
-    # all-reduce across ranks so every rank sees identical metrics
-    if backend and backend.world_size() > 1:
-        for k in sums:
-            t = torch.tensor(sums[k], device=device)
-            t = backend.reduce_mean(t) * backend.world_size()  # reduce_mean then scale back to sum
-            sums[k] = t.item()
-        # For per_cb_sum and counts, use the same pattern
-        t = torch.tensor([cb0_correct, cb0_total, float(n)], device=device)
-        t = backend.reduce_mean(t) * backend.world_size()
-        cb0_correct, cb0_total, n = t.tolist()
-        per_cb_sum_t = backend.reduce_mean(per_cb_sum) * backend.world_size()
-        per_cb_sum = per_cb_sum_t
-
-    model.train()
     if n == 0:
+        model.train()
         return {}
+
+    # Multi-host DDP all-reduce so every rank sees identical metrics.
+    # No-op under single-host v6e-8 SPMD (world_size == 1; the 8 chips are
+    # reduced transparently by the partitioner).
+    if backend and backend.world_size() > 1:
+        ws = backend.world_size()
+        acc_loss = backend.reduce_mean(acc_loss) * ws
+        acc_text = backend.reduce_mean(acc_text) * ws
+        acc_audio = backend.reduce_mean(acc_audio) * ws
+        per_cb_sum = backend.reduce_mean(per_cb_sum) * ws
+        cb0_correct = backend.reduce_mean(cb0_correct) * ws
+        cb0_total = backend.reduce_mean(cb0_total) * ws
+        n_finite = backend.reduce_mean(n_finite) * ws
+
+    # Single host-sync point for the whole validation pass.
+    cc = float(cb0_correct.item())
+    ct = float(cb0_total.item())
+    nf = float(n_finite.item())
+    model.train()
+    if nf == 0:
+        print(f"  [val] WARNING: all {n} val batches produced non-finite loss", flush=True)
+        return {}
+    if nf < n:
+        print(f"  [val] skipped {n - int(nf)}/{n} non-finite val batches", flush=True)
+    inv = 1.0 / nf
     return {
-        "val/loss": sums["loss"] / n,
-        "val/text_loss": sums["text"] / n,
-        "val/audio_loss": sums["audio"] / n,
-        "val/cb0_acc": (cb0_correct / cb0_total) if cb0_total > 0 else 0.0,
-        "val/per_codebook_loss": (per_cb_sum / n).detach().cpu().tolist(),
+        "val/loss": (acc_loss * inv).item(),
+        "val/text_loss": (acc_text * inv).item(),
+        "val/audio_loss": (acc_audio * inv).item(),
+        "val/cb0_acc": (cc / ct) if ct > 0 else 0.0,
+        "val/per_codebook_loss": (per_cb_sum * inv).detach().cpu().tolist(),
     }
 
 
@@ -1040,7 +1155,68 @@ def main():
     # distributed-training#track-all-processes-to-a-single-run
     use_wandb = cfg["logging"]["use_wandb"]
     if use_wandb:
+        import platform
+        import re
+
         import wandb
+
+        # --- Release reproducibility metadata (audit items #6, #8) -----
+        # The VM is not a git checkout, so the commit SHA is injected by
+        # the launcher via GIT_SHA. Versions + dataset provenance + split
+        # counts make the public run reproducible.
+        _versions = {"python": platform.python_version(), "torch": torch.__version__}
+        for _m in ("torch_xla", "transformers", "peft", "numpy", "accelerate", "tokenizers"):
+            try:
+                _versions[_m] = __import__(_m).__version__
+            except Exception:
+                pass
+
+        def _count_lines(_p):
+            try:
+                with open(_p) as _f:
+                    return sum(1 for _ in _f)
+            except Exception:
+                return None
+
+        _run_config = {
+            **cfg,
+            "release_meta": {
+                "versions": _versions,
+                "git_sha": os.environ.get("GIT_SHA", "unknown"),
+                "git_dirty": os.environ.get("GIT_DIRTY", "unknown"),
+                "tpu_topology": "v6e-8" if is_tpu else platform.machine(),
+                "dataset_id": "tiny-aya-translate/tr-hi-mimi-encoded",
+                "dataset_revision": os.environ.get("DATASET_REVISION", "unknown"),
+                "train_rows": _count_lines(cfg["data"].get("train_split")),
+                "val_rows": _count_lines(cfg["data"].get("val_split")),
+            },
+        }
+
+        # Hygiene (audit item #9): never let secret-like content reach the
+        # public run config. cfg is the YAML (clean by construction); this
+        # is belt-and-suspenders before a public release.
+        def _has_secret(obj):
+            if isinstance(obj, dict):
+                return any(_has_secret(k) or _has_secret(v) for k, v in obj.items())
+            if isinstance(obj, (list, tuple)):
+                return any(_has_secret(x) for x in obj)
+            s = str(obj)
+            # NB: deliberately do NOT flag bare 40-hex -- the git SHA we
+            # intentionally log (and content hashes) are 40-hex and would
+            # false-positive, aborting the run. HF tokens have a distinctive
+            # hf_ prefix; named secrets are caught by substring.
+            return bool(re.search(r"hf_[A-Za-z0-9]{20,}", s)) or any(
+                t in s.upper() for t in ("WANDB_API_KEY", "HF_TOKEN", "KAGGLE_KEY", "AWS_SECRET")
+            )
+
+        assert not _has_secret(_run_config), "secret-like content in wandb config; aborting publish"
+
+        _wandb_tags = ["stage2", "tr-hi", "speech-to-speech", "v6e-8" if is_tpu else "cpu", "release"]
+        _wandb_notes = (
+            "TinyAya Stage 2 TR<->HI speech-to-speech translation. "
+            f"git={os.environ.get('GIT_SHA', 'unknown')[:12]}. "
+            "LoRA on CohereLabs/tiny-aya-base + Moshi depth decoder + Mimi."
+        )
 
         try:
             host_idx = backend.host_index() if hasattr(backend, "host_index") else 0
@@ -1082,7 +1258,7 @@ def main():
                         x_primary=False,
                         x_update_finish_state=False,
                     ),
-                    config=cfg,
+                    config=_run_config,
                 )
                 print(f"[wandb] worker host {host_idx} attached to shared run {run_id}", flush=True)
             else:
@@ -1097,7 +1273,9 @@ def main():
             wandb.init(
                 project=cfg["logging"]["wandb_project"],
                 name=cfg["logging"]["wandb_run_name"],
-                config=cfg,
+                config=_run_config,
+                tags=_wandb_tags,
+                notes=_wandb_notes,
                 settings=wandb.Settings(
                     mode="shared",
                     x_label="rank_0",
@@ -1806,14 +1984,17 @@ def main():
                 print(f"  demo failed: {e}")
 
         # ---- validation
-        # Skip on TPU for the canary: run_validation contains 4 `.item()`
-        # calls inside the per-batch loop plus boolean-indexing that
-        # produces dynamic shapes -- both trigger XLA cpu_fallback /
-        # recompile cascades. Validation works correctly on GPU; for a
-        # TPU canary the training loss curve is the signal we need.
-        # Re-enable once the validation loop is rewritten with
-        # accumulator tensors instead of .item() (mirroring patch 7).
-        if val_loader is not None and val_every and step % val_every == 0 and not is_tpu:
+        # run_validation was rewritten (patch-7 pattern) to be TPU-safe:
+        # on-device accumulators, single end-of-pass host sync, no
+        # recompiles, and confirmed NOT to tank throughput (v6e-8 smoke).
+        # HOWEVER, the val forward still yields a non-finite loss at
+        # supervised positions on TPU (every batch), a data/numerics issue
+        # distinct from masking -- under investigation. So inline TPU val
+        # is OPT-IN (`logging.val_on_tpu`, default false); release quality
+        # comes from the GPU eval (eval_release.py: ASR-BLEU + DNSMOS),
+        # which is the stronger signal anyway. On GPU, val runs as before.
+        _val_enabled = (not is_tpu) or bool(cfg["logging"].get("val_on_tpu", False))
+        if val_loader is not None and val_every and step % val_every == 0 and _val_enabled:
             if is_main:
                 print(f"  running validation at step {step}...")
             val = run_validation(
@@ -1825,10 +2006,15 @@ def main():
                 cfg["loss"],
                 is_ddp=False,
                 backend=backend,
+                max_batches=cfg["logging"].get("val_max_batches"),
+                val_debug=cfg["logging"].get("val_debug", False),
             )
-            if is_main:
+            # run_validation returns {} if every batch was non-finite -- a
+            # failed/empty val must never crash the training run.
+            val_ok = bool(val) and "val/loss" in val
+            if val_ok and is_main:
                 print(f"  val/loss={val['val/loss']:.4f} cb0_acc={val['val/cb0_acc'] * 100:.1f}%")
-            if use_wandb and is_main:
+            if val_ok and use_wandb and is_main:
                 import wandb
 
                 log = {k: v for k, v in val.items() if k != "val/per_codebook_loss"}
@@ -1836,7 +2022,7 @@ def main():
                     log[f"val/per_codebook_loss_{i}"] = v
                 log["global_step"] = step
                 wandb.log(log)
-            if val["val/loss"] < best_val:
+            if val_ok and val["val/loss"] < best_val:
                 best_val = val["val/loss"]
                 # Validation only runs on GPU (not is_tpu), where save_dir is
                 # local; keep best_by_val as a local Path.
