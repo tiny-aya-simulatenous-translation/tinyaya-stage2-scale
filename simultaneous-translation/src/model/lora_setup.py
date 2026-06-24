@@ -52,33 +52,39 @@ def apply_lora(
     lora_alpha=32,
     target_modules=None,
     num_full_ft_layers=0,
+    lora_exclude_top=2,
 ):
     """Apply LoRA to the TinyAya backbone (config-driven; sweepable).
 
     Strategy:
-    - LoRA (rank ``r``, scale ``lora_alpha``) on ``target_modules``. When
-      ``num_full_ft_layers > 0`` the LoRA layers are 0..N-num_full_ft_layers
-      and the top ``num_full_ft_layers`` transformer blocks are FULLY
-      fine-tuned instead; when 0 (default) every layer gets LoRA.
+    - LoRA (rank ``r``, scale ``lora_alpha``) on ``target_modules`` for layers
+      ``0 .. N - max(lora_exclude_top, num_full_ft_layers)``. The excluded top
+      layers are FROZEN, except the top ``num_full_ft_layers`` which are fully
+      fine-tuned.
     - ``text_embed`` wrapped with ``LoRAEmbedding`` (frozen base + adapter).
     - ``audio_heads`` always trainable.
 
-    ``num_full_ft_layers`` is an OPT-IN capacity lever (sweep candidate). It is
-    OFF by default: each unfrozen block adds its full param + AdamW state (~78M
-    + optimiser on a 36-layer/2048-hidden backbone), which strains the v6e-8
-    HBM budget (production peaks ~26/31 GB at the LoRA-only ~122M surface). The
-    unfreeze is module-based (not param-name string matching) and asserts it
-    actually took effect, so it can never silently no-op.
+    Defaults reproduce the proven-finite surface: LoRA on 0..N-2, top-2 frozen
+    (production ~122M trainable, ~26/31 GB HBM). NOTE: LoRA on ALL layers
+    (``lora_exclude_top=0``) was observed to spike HBM to ~29.5/31 GB and drive
+    a non-finite forward via the fsdpv2_lora wrapping of the heavy top blocks --
+    keep top layers excluded until that is understood.
+
+    ``num_full_ft_layers`` is an OPT-IN capacity lever (sweep candidate), OFF by
+    default: each unfrozen block adds its full param + AdamW state (~78M +
+    optimiser on a 36-layer/2048-hidden backbone), which strains HBM. The
+    unfreeze is module-based (not param-name matching) and asserts it took
+    effect, so it can never silently no-op.
     """
     if target_modules is None:
         target_modules = ["q_proj", "v_proj", "embed_tokens"]
     target_modules = list(target_modules)
 
     num_layers = backbone.model.config.num_hidden_layers
-    # layers_to_transform=None => LoRA on ALL layers.
-    lora_layers = (
-        list(range(num_layers - num_full_ft_layers)) if num_full_ft_layers > 0 else None
-    )
+    # LoRA on 0..N-excluded; the excluded top layers are frozen (or full-FT'd
+    # below). layers_to_transform=None would mean ALL layers (see HBM caveat).
+    excluded = max(lora_exclude_top, num_full_ft_layers)
+    lora_layers = list(range(num_layers - excluded)) if excluded > 0 else None
 
     lora_config = LoraConfig(
         r=r,
@@ -118,6 +124,7 @@ def apply_lora(
 
     print(
         f"[lora] r={r} alpha={lora_alpha} targets={target_modules} "
+        f"lora_layers=0..{num_layers - excluded - 1} (exclude_top={excluded}) "
         f"num_full_ft_layers={num_full_ft_layers} (+{unfrozen / 1e6:.1f}M full-FT)"
     )
     backbone.model.print_trainable_parameters()

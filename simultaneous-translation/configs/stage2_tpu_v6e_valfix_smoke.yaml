@@ -49,6 +49,7 @@ lora:
   alpha: 32
   target_modules: [q_proj, v_proj, embed_tokens]
   num_full_ft_layers: 0
+  lora_exclude_top: 2
 
 optim:
   lr_lora: 1.5e-4

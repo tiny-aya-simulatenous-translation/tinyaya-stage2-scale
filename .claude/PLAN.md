@@ -39,7 +39,8 @@ regression** — Stage-1 (`src/training/loss.py`) down-weights padding 100×.
       (`text_padding_weight=0.01`, `zero_padding_weight=0.0`); plumbed through
       both call sites + configs; numerically verified (uniform 7.61 →
       weighted 2.13, real-token-focused, finite).
-- [ ] Confirm on TPU that train/val text CE actually drops (rides next smoke).
+- [x] **TPU-CONFIRMED (smoke 2026-06-24):** text CE drops — `text 12.02→10.88`
+      in one step (was flat ~13.5–14 = random); `val/loss=8.90` finite.
 - [ ] (sweep) tune `text_weight` (0.1→?) now that padding no longer dominates;
       consider making the new-token lm_head rows trainable for END_OF_TEXT etc.
 - **DoD:** ✅ exact defect documented + fix verified at loss level. Live TPU
@@ -58,9 +59,15 @@ regression** — Stage-1 (`src/training/loss.py`) down-weights padding 100×.
       (`.layers.`), so it tracks any `num_full_ft_layers`.
 - [x] Added the `lora:` block to prod + smoke configs (default
       `num_full_ft_layers: 0`).
-- **DoD:** ✅ rank/targets/full-FT config-driven; param-group printout +
-  apply_lora `[lora]` line show the realized surface; enabling full-FT now
-  populates `full_ft` (asserted). Live TPU re-confirm rides the next smoke.
+- [x] Decoupled LoRA layer-coverage from full-FT via `lora_exclude_top`
+      (default 2 = proven surface). Smoke found LoRA-on-ALL-layers spikes HBM
+      ~29.5/31 GB + non-finite forward (fsdpv2_lora wrapping the heavy top
+      blocks); default now reproduces the finite 0..33 surface @26.4 GB.
+- [x] Fixed a brittle warmup sentinel: exact float-equality on bf16/XLA was
+      flaky (non-deterministic read noise) → now tolerance-based (atol 1e-2).
+- **DoD:** ✅ rank/targets/exclude_top/full-FT config-driven; **TPU-CONFIRMED
+  (smoke 2026-06-24):** `[lora] lora_layers=0..33 exclude_top=2`, finite
+  forward, 26.4 GB, val finite. full-FT opt-in asserted.
 
 ## Phase 2 — Stability dashboard (8 metrics, on-device)
 Implement in the existing `running_xla` accumulator pattern in

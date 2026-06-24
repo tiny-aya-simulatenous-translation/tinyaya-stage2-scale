@@ -87,6 +87,9 @@ lora:
   r: 16
   alpha: 32
   target_modules: [q_proj, v_proj, embed_tokens]
+  # Top layers EXCLUDED from LoRA (frozen). Default 2 = proven-finite surface.
+  # LoRA-on-all-layers (0) spiked HBM ~29.5/31 GB + non-finite forward.
+  lora_exclude_top: 2
   # Top-N full fine-tune of backbone blocks. OFF by default: each block adds
   # its full params + AdamW state and the v6e-8 HBM budget is thin (~26/31 GB
   # at the LoRA-only ~122M surface). Opt-in capacity lever for the sweep.

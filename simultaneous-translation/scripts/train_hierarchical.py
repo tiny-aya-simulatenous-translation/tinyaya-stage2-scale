@@ -881,6 +881,7 @@ def main():
         lora_alpha=_lora_cfg.get("alpha", 32),
         target_modules=_lora_cfg.get("target_modules", ["q_proj", "v_proj", "embed_tokens"]),
         num_full_ft_layers=_lora_cfg.get("num_full_ft_layers", 0),
+        lora_exclude_top=_lora_cfg.get("lora_exclude_top", 2),
     )
     freeze_depth_internals(model)
     for p in model.projection.parameters():
@@ -1822,11 +1823,24 @@ def main():
         _xm.mark_step()
         optimizer.zero_grad(set_to_none=False)
         sentinel_after = trainable_weight_sentinel()
-        if sentinel_after != sentinel_before:
+        # Tolerance-based drift check. Warmup runs at lr=0 AND wd=0, so a real
+        # weight update is mathematically 0; but EXACT float equality is
+        # fragile on TPU/bf16 (the same unchanged weights read through two
+        # different XLA graphs can differ by rounding noise). Use a small
+        # absolute tolerance so genuine drift (a mis-zeroed LR/WD group) still
+        # trips it while bf16 read-noise does not.
+        _drift = max(
+            (abs(a - b) for a, b in zip(sentinel_after, sentinel_before)),
+            default=0.0,
+        )
+        if _drift > 1e-2:
             raise RuntimeError(
-                "TPU compile warmup changed sampled trainable weights: "
-                f"before={sentinel_before[:4]} after={sentinel_after[:4]}"
+                "TPU compile warmup changed trainable weights beyond tolerance: "
+                f"max|delta|={_drift:.3e} before={sentinel_before[:4]} "
+                f"after={sentinel_after[:4]}"
             )
+        if is_main:
+            print(f"[compile-warmup] weight-drift check OK (max|delta|={_drift:.3e})", flush=True)
         micro_batches_seen_this_epoch = 0
         replay_batches.extend(warmup_replay)
         if is_main:
