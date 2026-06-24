@@ -26,6 +26,1632 @@ moved to `.claude/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-06-24T05:18:59Z | feat/release-instrumentation-15k@b23b767 | done | exec
+\
+
+
+## 2026-06-24T05:12:10Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-24T05:09:59Z | feat/release-instrumentation-15k@1aff52b | done | edit
+created `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/stage2-capacity-and-metrics-plan.md`
+
+
+## 2026-06-24T05:09:31Z | feat/release-instrumentation-15k@1aff52b | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/docs/next-15k-run-plan.md`
+
+
+## 2026-06-24T04:57:30Z | feat/release-instrumentation-15k@1aff52b | done | exec
+\
+
+
+## 2026-06-24T04:49:12Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-24T04:41:10Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-24T04:40:52Z | feat/release-instrumentation-15k@1aff52b | done | exec
+N=tinyaya-training-v6e8-euw4a; Z=europe-west4-a; P=ml-pipelines-315702; \
+
+
+## 2026-06-24T04:40:29Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/tpu-bf16-nan-val-findings.md`
+
+
+## 2026-06-24T04:40:22Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/tpu-bf16-nan-val-findings.md`
+
+
+## 2026-06-24T04:40:09Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_v2.yaml`
+
+
+## 2026-06-24T04:30:30Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-24T04:30:21Z | feat/release-instrumentation-15k@1aff52b | done | exec
+N=tinyaya-training-v6e8-euw4a; Z=europe-west4-a; P=ml-pipelines-315702; \
+
+
+## 2026-06-24T04:20:14Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-24T04:19:53Z | feat/release-instrumentation-15k@1aff52b | done | exec
+N=tinyaya-training-v6e8-euw4a; Z=europe-west4-a; P=ml-pipelines-315702; \
+
+
+## 2026-06-24T04:10:34Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-24T04:10:23Z | feat/release-instrumentation-15k@1aff52b | done | exec
+N=tinyaya-training-v6e8-euw4a; Z=europe-west4-a; P=ml-pipelines-315702; \
+
+
+## 2026-06-24T04:00:41Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-24T04:00:28Z | feat/release-instrumentation-15k@1aff52b | done | exec
+N=tinyaya-training-v6e8-euw4a; Z=europe-west4-a; P=ml-pipelines-315702; \
+
+
+## 2026-06-24T03:58:43Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-24T03:58:31Z | feat/release-instrumentation-15k@1aff52b | done | exec
+Q=tinyaya-training-v6e8-euw4a-qr; Z=europe-west4-a; P=ml-pipelines-315702; \
+
+
+## 2026-06-24T03:45:12Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-24T03:45:00Z | feat/release-instrumentation-15k@1aff52b | done | exec
+Q=tinyaya-training-v6e8-euw4a-qr; Z=europe-west4-a; P=ml-pipelines-315702; \
+
+
+## 2026-06-24T03:44:43Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-24T03:44:24Z | feat/release-instrumentation-15k@1aff52b | done | exec
+Q=tinyaya-training-v6e8-euw4a-qr; Z=europe-west4-a; P=ml-pipelines-315702; \
+
+
+## 2026-06-24T03:43:37Z | feat/release-instrumentation-15k@1aff52b | done | exec
+\
+
+
+## 2026-06-24T03:43:08Z | feat/release-instrumentation-15k@1aff52b | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale && \
+
+
+## 2026-06-24T03:42:40Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/tpu/startup_script.sh`
+
+
+## 2026-06-24T03:41:50Z | feat/release-instrumentation-15k@1aff52b | done | exec
+F=/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/tpu/startup_script.sh; sed -n '30,130p' "$F"
+
+
+## 2026-06-24T03:32:53Z | feat/release-instrumentation-15k@1aff52b | done | exec
+\
+
+
+## 2026-06-24T03:30:05Z | feat/release-instrumentation-15k@1aff52b | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale && SC=/tmp/claude-1000/-home-cataluna84-Workspace-tinyaya-stage2-scale/9d91a9c6-d22b-474c-8971-e137f68da904/scratchpad && \
+
+
+## 2026-06-24T03:27:10Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-24T03:26:38Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/tpu-bf16-nan-val-findings.md`
+
+
+## 2026-06-24T03:26:22Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/tpu-bf16-nan-val-findings.md`
+
+
+## 2026-06-24T03:25:00Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/training/translation_loss.py`
+
+
+## 2026-06-24T03:22:06Z | feat/release-instrumentation-15k@1aff52b | info | session
+SessionEnd (resume): 29 item(s) carried forward
+
+Next steps:
+- **#8/#6 env+git → `wandb.config`** at `train_hierarchical.py:1076/1097`:
+- **#13 tags/notes** on `wandb.init`.
+- **#9 hygiene guard**: assert `wandb.config` = YAML only; no
+- **#5/#12 log upload**: launcher sanitizes (reuse 2026-06-23
+- **#7 safetensors save**: `src/training/checkpointing.py` final save
+- **#7 artifact auto-register** at final save (reuse
+- Rewrite `run_validation` (`train_hierarchical.py:544`) with XLA
+- Drop `and not is_tpu` at `:1816`; confirm `val/loss` +
+
+
+## 2026-06-23T13:48:20Z | feat/release-instrumentation-15k@1aff52b | info | session
+SessionEnd (other): 29 item(s) carried forward
+
+Next steps:
+- **#8/#6 env+git → `wandb.config`** at `train_hierarchical.py:1076/1097`:
+- **#13 tags/notes** on `wandb.init`.
+- **#9 hygiene guard**: assert `wandb.config` = YAML only; no
+- **#5/#12 log upload**: launcher sanitizes (reuse 2026-06-23
+- **#7 safetensors save**: `src/training/checkpointing.py` final save
+- **#7 artifact auto-register** at final save (reuse
+- Rewrite `run_validation` (`train_hierarchical.py:544`) with XLA
+- Drop `and not is_tpu` at `:1816`; confirm `val/loss` +
+
+
+## 2026-06-23T13:46:14Z | feat/release-instrumentation-15k@1aff52b | done | exec
+SC=/tmp/claude-1000/-home-cataluna84-Workspace-tinyaya-stage2-scale/9d91a9c6-d22b-474c-8971-e137f68da904/scratchpad && \
+
+
+## 2026-06-23T13:45:53Z | feat/release-instrumentation-15k@1aff52b | done | edit
+created `/tmp/claude-1000/-home-cataluna84-Workspace-tinyaya-stage2-scale/9d91a9c6-d22b-474c-8971-e137f68da904/scratchpad/train_loop_valfix.sh`
+
+
+## 2026-06-23T13:41:45Z | feat/release-instrumentation-15k@1aff52b | done | exec
+SC=/tmp/claude-1000/-home-cataluna84-Workspace-tinyaya-stage2-scale/9d91a9c6-d22b-474c-8971-e137f68da904/scratchpad && \
+
+
+## 2026-06-23T13:41:08Z | feat/release-instrumentation-15k@1aff52b | done | edit
+created `/tmp/claude-1000/-home-cataluna84-Workspace-tinyaya-stage2-scale/9d91a9c6-d22b-474c-8971-e137f68da904/scratchpad/train_loop_valfix.sh`
+
+
+## 2026-06-23T13:36:21Z | feat/release-instrumentation-15k@1aff52b | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale && SC=/tmp/claude-1000/-home-cataluna84-Workspace-tinyaya-stage2-scale/9d91a9c6-d22b-474c-8971-e137f68da904/scratchpad && \
+
+
+## 2026-06-23T13:36:01Z | feat/release-instrumentation-15k@1aff52b | done | edit
+created `/tmp/claude-1000/-home-cataluna84-Workspace-tinyaya-stage2-scale/9d91a9c6-d22b-474c-8971-e137f68da904/scratchpad/train_loop_valfix.sh`
+
+
+## 2026-06-23T13:35:35Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T13:35:24Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T13:30:19Z | feat/release-instrumentation-15k@1aff52b | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale && \
+
+
+## 2026-06-23T13:29:15Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/tpu/_remote_redeploy.sh`
+
+
+## 2026-06-23T13:27:05Z | feat/release-instrumentation-15k@1aff52b | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_valfix_smoke.yaml`
+
+
+## 2026-06-23T13:26:43Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T13:26:31Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T13:26:18Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/tpu/launch_release.sh`
+
+
+## 2026-06-23T13:26:04Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/tpu/launch_release.sh`
+
+
+## 2026-06-23T13:21:13Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T13:08:58Z | feat/release-instrumentation-15k@1aff52b | info | session
+PreCompact (manual): 29 unchecked PLAN items
+
+Top open items:
+- **#8/#6 env+git → `wandb.config`** at `train_hierarchical.py:1076/1097`:
+- **#13 tags/notes** on `wandb.init`.
+- **#9 hygiene guard**: assert `wandb.config` = YAML only; no
+- **#5/#12 log upload**: launcher sanitizes (reuse 2026-06-23
+- **#7 safetensors save**: `src/training/checkpointing.py` final save
+- **#7 artifact auto-register** at final save (reuse
+- Rewrite `run_validation` (`train_hierarchical.py:544`) with XLA
+- Drop `and not is_tpu` at `:1816`; confirm `val/loss` +
+- Persist `best_val_loss` in checkpoint `extra_state` (already wired).
+- Run `eval_stage2.py` / `eval_checkpoint.py` against
+
+
+## 2026-06-23T13:06:24Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T13:05:59Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/tpu-bf16-nan-val-findings.md`
+
+
+## 2026-06-23T13:05:31Z | feat/release-instrumentation-15k@1aff52b | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T13:02:17Z | feat/release-instrumentation-15k@1aff52b | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T12:51:39Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T12:51:13Z | feat/release-instrumentation-15k@1aff52b | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T12:01:08Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T12:00:46Z | feat/release-instrumentation-15k@1aff52b | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T12:00:34Z | feat/release-instrumentation-15k@1aff52b | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T11:58:42Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T11:58:31Z | feat/release-instrumentation-15k@1aff52b | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T11:57:30Z | feat/release-instrumentation-15k@1aff52b | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T11:57:18Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T11:56:45Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T11:52:29Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T11:51:49Z | feat/release-instrumentation-15k@1aff52b | info | session
+PreCompact (auto): 29 unchecked PLAN items
+
+Top open items:
+- **#8/#6 env+git → `wandb.config`** at `train_hierarchical.py:1076/1097`:
+- **#13 tags/notes** on `wandb.init`.
+- **#9 hygiene guard**: assert `wandb.config` = YAML only; no
+- **#5/#12 log upload**: launcher sanitizes (reuse 2026-06-23
+- **#7 safetensors save**: `src/training/checkpointing.py` final save
+- **#7 artifact auto-register** at final save (reuse
+- Rewrite `run_validation` (`train_hierarchical.py:544`) with XLA
+- Drop `and not is_tpu` at `:1816`; confirm `val/loss` +
+- Persist `best_val_loss` in checkpoint `extra_state` (already wired).
+- Run `eval_stage2.py` / `eval_checkpoint.py` against
+
+
+## 2026-06-23T11:50:12Z | feat/release-instrumentation-15k@1aff52b | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T11:46:40Z | feat/release-instrumentation-15k@1aff52b | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T11:46:14Z | feat/release-instrumentation-15k@1aff52b | done | edit
+edited `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/MEMORY.md`
+
+
+## 2026-06-23T11:45:26Z | feat/release-instrumentation-15k@1aff52b | done | edit
+created `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/tpu-bf16-nan-val-findings.md`
+
+
+## 2026-06-23T11:44:57Z | feat/release-instrumentation-15k@1aff52b | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T11:43:33Z | feat/release-instrumentation-15k@d5d9b83 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T11:42:04Z | feat/release-instrumentation-15k@d5d9b83 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T11:23:55Z | feat/release-instrumentation-15k@d5d9b83 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T11:23:37Z | feat/release-instrumentation-15k@d5d9b83 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T11:23:15Z | feat/release-instrumentation-15k@d5d9b83 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T11:12:42Z | feat/release-instrumentation-15k@d5d9b83 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T11:11:01Z | feat/release-instrumentation-15k@d5d9b83 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T11:10:10Z | feat/release-instrumentation-15k@d5d9b83 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T11:09:01Z | feat/release-instrumentation-15k@d5d9b83 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T11:08:46Z | feat/release-instrumentation-15k@d5d9b83 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T11:03:04Z | feat/release-instrumentation-15k@d5d9b83 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T11:02:10Z | feat/release-instrumentation-15k@d5d9b83 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T11:01:53Z | feat/release-instrumentation-15k@d5d9b83 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T11:01:21Z | feat/release-instrumentation-15k@91b4852 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T10:59:31Z | feat/release-instrumentation-15k@91b4852 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/MODEL_CARD.md`
+
+
+## 2026-06-23T10:58:50Z | feat/release-instrumentation-15k@91b4852 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T10:58:11Z | feat/release-instrumentation-15k@91b4852 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T10:57:36Z | feat/release-instrumentation-15k@91b4852 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T10:57:12Z | feat/release-instrumentation-15k@91b4852 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T10:56:54Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T10:56:43Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T10:55:54Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/publish_release.py`
+
+
+## 2026-06-23T10:55:44Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/publish_release.py`
+
+
+## 2026-06-23T10:55:25Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/MODEL_CARD.md`
+
+
+## 2026-06-23T10:55:03Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/MODEL_CARD.md`
+
+
+## 2026-06-23T10:54:09Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/MODEL_CARD.md`
+
+
+## 2026-06-23T10:46:42Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T10:40:42Z | feat/release-instrumentation-15k@fa8bb19 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T10:37:38Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T10:32:57Z | feat/release-instrumentation-15k@fa8bb19 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T10:32:30Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T10:32:15Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T10:30:10Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/training/translation_loss.py`
+
+
+## 2026-06-23T10:27:31Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T08:27:35Z | feat/release-instrumentation-15k@fa8bb19 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T08:27:16Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T08:27:01Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T08:25:18Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T08:24:59Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T08:24:44Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T08:24:26Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T08:23:38Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T08:23:01Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T08:22:38Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T08:22:21Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T08:21:55Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T08:20:44Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T08:17:56Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T08:12:35Z | feat/release-instrumentation-15k@fa8bb19 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T08:08:24Z | feat/release-instrumentation-15k@fa8bb19 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T08:03:37Z | feat/release-instrumentation-15k@fa8bb19 | info | session
+SessionEnd (resume): 29 item(s) carried forward
+
+Next steps:
+- **#8/#6 env+git → `wandb.config`** at `train_hierarchical.py:1076/1097`:
+- **#13 tags/notes** on `wandb.init`.
+- **#9 hygiene guard**: assert `wandb.config` = YAML only; no
+- **#5/#12 log upload**: launcher sanitizes (reuse 2026-06-23
+- **#7 safetensors save**: `src/training/checkpointing.py` final save
+- **#7 artifact auto-register** at final save (reuse
+- Rewrite `run_validation` (`train_hierarchical.py:544`) with XLA
+- Drop `and not is_tpu` at `:1816`; confirm `val/loss` +
+
+
+## 2026-06-23T08:03:06Z | feat/release-instrumentation-15k@fa8bb19 | info | session
+SessionEnd (other): 29 item(s) carried forward
+
+Next steps:
+- **#8/#6 env+git → `wandb.config`** at `train_hierarchical.py:1076/1097`:
+- **#13 tags/notes** on `wandb.init`.
+- **#9 hygiene guard**: assert `wandb.config` = YAML only; no
+- **#5/#12 log upload**: launcher sanitizes (reuse 2026-06-23
+- **#7 safetensors save**: `src/training/checkpointing.py` final save
+- **#7 artifact auto-register** at final save (reuse
+- Rewrite `run_validation` (`train_hierarchical.py:544`) with XLA
+- Drop `and not is_tpu` at `:1816`; confirm `val/loss` +
+
+
+## 2026-06-23T08:03:04Z | feat/release-instrumentation-15k@fa8bb19 | info | session
+SessionEnd (prompt_input_exit): 29 item(s) carried forward
+
+Next steps:
+- **#8/#6 env+git → `wandb.config`** at `train_hierarchical.py:1076/1097`:
+- **#13 tags/notes** on `wandb.init`.
+- **#9 hygiene guard**: assert `wandb.config` = YAML only; no
+- **#5/#12 log upload**: launcher sanitizes (reuse 2026-06-23
+- **#7 safetensors save**: `src/training/checkpointing.py` final save
+- **#7 artifact auto-register** at final save (reuse
+- Rewrite `run_validation` (`train_hierarchical.py:544`) with XLA
+- Drop `and not is_tpu` at `:1816`; confirm `val/loss` +
+
+
+## 2026-06-23T08:02:06Z | feat/release-instrumentation-15k@fa8bb19 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T07:55:54Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T07:29:55Z | feat/release-instrumentation-15k@fa8bb19 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T07:29:31Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T07:28:47Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T06:50:30Z | feat/release-instrumentation-15k@fa8bb19 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T06:50:15Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T06:49:49Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T06:47:56Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T06:47:13Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T06:38:57Z | feat/release-instrumentation-15k@fa8bb19 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T06:38:39Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T06:38:25Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/tmp/diag_val.py`
+
+
+## 2026-06-23T06:20:20Z | feat/release-instrumentation-15k@fa8bb19 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T06:19:21Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T06:18:56Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+edited `/tmp/diag_val.py`
+
+
+## 2026-06-23T06:18:21Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T06:16:50Z | feat/release-instrumentation-15k@fa8bb19 | done | edit
+created `/tmp/diag_val.py`
+
+
+## 2026-06-23T06:14:35Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T06:13:26Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T06:09:17Z | feat/release-instrumentation-15k@fa8bb19 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T06:08:55Z | feat/release-instrumentation-15k@fa8bb19 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T06:06:41Z | feat/release-instrumentation-15k@fa8bb19 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T06:06:30Z | feat/release-instrumentation-15k@b54b0f7 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/PLAN.md`
+
+
+## 2026-06-23T06:06:02Z | feat/release-instrumentation-15k@b54b0f7 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T06:05:41Z | feat/release-instrumentation-15k@dffdff1 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T06:05:00Z | feat/release-instrumentation-15k@dffdff1 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T06:03:55Z | feat/release-instrumentation-15k@dffdff1 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T05:05:07Z | feat/release-instrumentation-15k@dffdff1 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T05:04:48Z | feat/release-instrumentation-15k@dffdff1 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T05:04:35Z | feat/release-instrumentation-15k@dffdff1 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T05:02:43Z | feat/release-instrumentation-15k@dffdff1 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T05:02:00Z | feat/release-instrumentation-15k@dffdff1 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T05:01:15Z | feat/release-instrumentation-15k@068705c | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/training/translation_loss.py`
+
+
+## 2026-06-23T05:01:04Z | feat/release-instrumentation-15k@068705c | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/training/translation_loss.py`
+
+
+## 2026-06-23T05:00:41Z | feat/release-instrumentation-15k@068705c | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/training/translation_loss.py`
+
+
+## 2026-06-23T04:59:07Z | feat/release-instrumentation-15k@068705c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T04:58:13Z | feat/release-instrumentation-15k@068705c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T04:57:59Z | feat/release-instrumentation-15k@068705c | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T04:55:46Z | feat/release-instrumentation-15k@068705c | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T04:39:19Z | feat/release-instrumentation-15k@068705c | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T04:39:01Z | feat/release-instrumentation-15k@068705c | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T04:31:55Z | feat/release-instrumentation-15k@068705c | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T04:31:35Z | feat/release-instrumentation-15k@068705c | info | session
+SessionEnd (other): 29 item(s) carried forward
+
+Next steps:
+- **#8/#6 env+git → `wandb.config`** at `train_hierarchical.py:1076/1097`:
+- **#13 tags/notes** on `wandb.init`.
+- **#9 hygiene guard**: assert `wandb.config` = YAML only; no
+- **#5/#12 log upload**: launcher sanitizes (reuse 2026-06-23
+- **#7 safetensors save**: `src/training/checkpointing.py` final save
+- **#7 artifact auto-register** at final save (reuse
+- Rewrite `run_validation` (`train_hierarchical.py:544`) with XLA
+- Drop `and not is_tpu` at `:1816`; confirm `val/loss` +
+
+
+## 2026-06-23T04:09:11Z | feat/release-instrumentation-15k@068705c | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T04:08:45Z | feat/release-instrumentation-15k@068705c | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T04:05:22Z | feat/release-instrumentation-15k@068705c | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T04:03:11Z | feat/release-instrumentation-15k@068705c | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T04:01:37Z | feat/release-instrumentation-15k@068705c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T04:00:41Z | feat/release-instrumentation-15k@c436472 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T04:00:15Z | feat/release-instrumentation-15k@c436472 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T03:59:33Z | feat/release-instrumentation-15k@c436472 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T03:56:08Z | feat/release-instrumentation-15k@c436472 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T03:24:48Z | feat/release-instrumentation-15k@c436472 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T03:24:15Z | feat/release-instrumentation-15k@c436472 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T02:50:13Z | feat/release-instrumentation-15k@c436472 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T02:49:55Z | feat/release-instrumentation-15k@c436472 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T02:49:09Z | feat/release-instrumentation-15k@c436472 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T02:48:35Z | feat/release-instrumentation-15k@c436472 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T02:47:44Z | feat/release-instrumentation-15k@c436472 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T02:45:50Z | feat/release-instrumentation-15k@c436472 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T02:44:52Z | feat/release-instrumentation-15k@c436472 | done | edit
+created `/tmp/stage2_tpu_v6e_v2_validate.yaml`
+
+
+## 2026-06-23T02:44:20Z | feat/release-instrumentation-15k@c436472 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T02:43:48Z | feat/release-instrumentation-15k@a3b1ecd | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T02:37:44Z | feat/release-instrumentation-15k@a3b1ecd | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T02:37:24Z | feat/release-instrumentation-15k@a3b1ecd | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T02:37:01Z | feat/release-instrumentation-15k@a3b1ecd | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T02:36:48Z | feat/release-instrumentation-15k@7010683 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/PLAN.md`
+
+
+## 2026-06-23T02:36:08Z | feat/release-instrumentation-15k@7010683 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T02:35:55Z | feat/release-instrumentation-15k@7010683 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T02:35:34Z | feat/release-instrumentation-15k@7010683 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T02:35:06Z | feat/release-instrumentation-15k@0125e1f | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/MODEL_CARD.md`
+
+
+## 2026-06-23T02:34:05Z | feat/release-instrumentation-15k@0125e1f | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/publish_release.py`
+
+
+## 2026-06-23T02:33:02Z | feat/release-instrumentation-15k@0125e1f | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/eval_release.py`
+
+
+## 2026-06-23T02:31:12Z | feat/release-instrumentation-15k@0125e1f | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T02:31:00Z | feat/release-instrumentation-15k@22fd2ae | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_v2.yaml`
+
+
+## 2026-06-23T02:30:53Z | feat/release-instrumentation-15k@22fd2ae | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T02:30:40Z | feat/release-instrumentation-15k@22fd2ae | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T02:30:24Z | feat/release-instrumentation-15k@22fd2ae | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T02:30:17Z | feat/release-instrumentation-15k@22fd2ae | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T02:29:56Z | feat/release-instrumentation-15k@22fd2ae | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T02:29:06Z | feat/release-instrumentation-15k@22fd2ae | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T02:28:19Z | feat/release-instrumentation-15k@22fd2ae | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T02:28:05Z | feat/release-instrumentation-15k@d573782 | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/tpu/launch_release.sh`
+
+
+## 2026-06-23T02:27:30Z | feat/release-instrumentation-15k@d573782 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T02:27:19Z | feat/release-instrumentation-15k@d573782 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T02:27:12Z | feat/release-instrumentation-15k@d573782 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T02:27:03Z | feat/release-instrumentation-15k@d573782 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T02:26:46Z | feat/release-instrumentation-15k@d573782 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/training/checkpointing.py`
+
+
+## 2026-06-23T02:25:49Z | feat/release-instrumentation-15k@d573782 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T02:25:38Z | feat/release-instrumentation-15k@d573782 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T02:24:54Z | feat/release-instrumentation-15k@d573782 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-23T02:22:22Z | feat/release-instrumentation-15k@d573782 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T02:20:34Z | main@d573782 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T02:20:06Z | main@d573782 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/PLAN.md`
+
+
+## 2026-06-23T02:19:45Z | main@d573782 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/PLAN.md`
+
+
+## 2026-06-23T02:18:24Z | main@d573782 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/PLAN.md`
+
+
+## 2026-06-23T02:12:31Z | main@d573782 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T02:12:01Z | main@d573782 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/PLAN.md`
+
+
+## 2026-06-23T02:11:49Z | main@d573782 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/PLAN.md`
+
+
+## 2026-06-23T02:11:35Z | main@d573782 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/PLAN.md`
+
+
+## 2026-06-23T02:11:14Z | main@d573782 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/PLAN.md`
+
+
+## 2026-06-23T02:10:50Z | main@d573782 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/PLAN.md`
+
+
+## 2026-06-23T02:06:18Z | main@d573782 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T02:05:50Z | main@d573782 | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/PLAN.md`
+
+
+## 2026-06-23T02:04:13Z | main@d573782 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T01:57:27Z | main@d573782 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T01:56:42Z | main@d573782 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T01:56:28Z | main@d573782 | done | edit
+created `/tmp/publish_artifact.py`
+
+
+## 2026-06-23T01:48:49Z | main@d573782 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T01:48:26Z | main@d573782 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T01:44:45Z | main@d573782 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T01:43:55Z | main@d573782 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T01:38:49Z | main@d573782 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T01:37:43Z | main@d573782 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-23T01:37:08Z | main@d573782 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T01:36:19Z | main@d573782 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T01:32:46Z | main@d573782 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T01:32:35Z | main@d573782 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T01:27:37Z | chore/deps-upgrade-and-tpu-metric-fixes@68d1b2c | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T01:27:25Z | chore/deps-upgrade-and-tpu-metric-fixes@68d1b2c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T01:27:04Z | chore/deps-upgrade-and-tpu-metric-fixes@68d1b2c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T01:26:52Z | chore/deps-upgrade-and-tpu-metric-fixes@68d1b2c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T01:26:35Z | chore/deps-upgrade-and-tpu-metric-fixes@88038c5 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T01:25:59Z | chore/deps-upgrade-and-tpu-metric-fixes@00742e1 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T01:25:33Z | chore/deps-upgrade-and-tpu-metric-fixes@16df652 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-23T01:23:50Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T01:23:35Z | main@16df652 | done | edit
+edited `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/MEMORY.md`
+
+
+## 2026-06-23T01:23:27Z | main@16df652 | done | edit
+created `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/transformers-version-ceiling.md`
+
+
+## 2026-06-23T01:20:28Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T01:19:48Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T00:33:12Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T00:32:37Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-23T00:32:23Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T00:32:05Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T00:31:36Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T00:30:38Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T00:28:02Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-23T00:26:51Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T17:44:36Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-22T17:44:21Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T17:44:08Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T17:43:37Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T17:41:33Z | main@16df652 | done | edit
+created `/tmp/stage2_tpu_v6e_v2_validate.yaml`
+
+
+## 2026-06-22T17:38:17Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T17:36:43Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T17:01:23Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-22T17:01:11Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T17:00:25Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-22T17:00:13Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:59:58Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:59:06Z | main@16df652 | done | exec
+export PATH="$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:58:41Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/pyproject.toml`
+
+
+## 2026-06-22T16:58:04Z | main@16df652 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-22T16:54:51Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:52:23Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-22T16:52:12Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:52:01Z | main@16df652 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-22T16:51:16Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/model/scan_utils.py`
+
+
+## 2026-06-22T16:51:03Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/model/scan_utils.py`
+
+
+## 2026-06-22T16:50:46Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/model/scan_utils.py`
+
+
+## 2026-06-22T16:50:40Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/model/scan_utils.py`
+
+
+## 2026-06-22T16:50:31Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/model/scan_utils.py`
+
+
+## 2026-06-22T16:49:05Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:47:44Z | main@16df652 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-22T16:43:19Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:40:24Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-22T16:40:12Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:40:00Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:39:14Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-22T16:38:59Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:38:48Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:38:13Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/tpu/startup_script.sh`
+
+
+## 2026-06-22T16:37:56Z | main@16df652 | done | exec
+export PATH="$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:37:45Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/pyproject.toml`
+
+
+## 2026-06-22T16:37:19Z | main@16df652 | done | exec
+export PATH="$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:37:08Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/pyproject.toml`
+
+
+## 2026-06-22T16:35:01Z | main@16df652 | done | exec
+curl -s --max-time 10 "https://pypi.org/pypi/transformers/json" 2>/dev/null | python3 -c "
+
+
+## 2026-06-22T16:32:45Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:31:44Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:30:36Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:29:48Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:26:53Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-22T16:26:41Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:26:23Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:25:52Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:25:23Z | main@16df652 | done | edit
+created `/tmp/launch_validate.sh`
+
+
+## 2026-06-22T16:25:05Z | main@16df652 | done | edit
+created `/tmp/stage2_tpu_v6e_v2_validate.yaml`
+
+
+## 2026-06-22T16:24:19Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:23:27Z | main@16df652 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-22T16:22:24Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:21:30Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:20:41Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-22T16:19:59Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:19:25Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:18:41Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:18:14Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:17:10Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:14:50Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-22T16:13:11Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-22T16:12:32Z | main@16df652 | done | exec
+export PATH="$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:10:05Z | main@16df652 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-22T16:09:58Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/generate_demos.py`
+
+
+## 2026-06-22T16:09:52Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/eval_with_english.py`
+
+
+## 2026-06-22T16:09:45Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/eval_full_codebooks.py`
+
+
+## 2026-06-22T16:09:39Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/prepare_data.py`
+
+
+## 2026-06-22T16:09:32Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/prepare_translation_data_fixed.py`
+
+
+## 2026-06-22T16:09:23Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/prepare_translation_data.py`
+
+
+## 2026-06-22T16:09:15Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/tpu/startup_script.sh`
+
+
+## 2026-06-22T16:08:05Z | main@16df652 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-22T16:07:02Z | main@16df652 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-22T16:05:32Z | main@16df652 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation
+
+
+## 2026-06-22T16:05:11Z | main@16df652 | done | exec
+export PATH="$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T16:04:59Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/pyproject.toml`
+
+
+## 2026-06-22T16:00:48Z | main@16df652 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-22T16:00:30Z | main@16df652 | done | exec
+export PATH="$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T15:57:26Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-22T15:57:02Z | main@16df652 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation && \
+
+
+## 2026-06-22T15:56:45Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/src/backend/tpu_backend.py`
+
+
+## 2026-06-22T15:56:26Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/configs/stage2_tpu_v6e_v2.yaml`
+
+
+## 2026-06-22T15:55:49Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-22T15:52:48Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T15:52:18Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T15:51:41Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T15:51:21Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T15:48:46Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-22T15:47:50Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-22T15:47:38Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-22T15:47:12Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-22T15:46:58Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-22T15:46:50Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-22T15:46:41Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-22T15:46:30Z | main@16df652 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/simultaneous-translation/scripts/train_hierarchical.py`
+
+
+## 2026-06-22T15:43:02Z | main@16df652 | info | session
+SessionEnd (resume): 16 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+
+
+## 2026-06-22T15:39:37Z | main@16df652 | info | session
+PreCompact (manual): 16 unchecked PLAN items
+
+Top open items:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+- If material, test static prewarmed buckets such as `200/300/400`.
+- Require macro-step-boundary bucket switches and no surprise late
+
+
+## 2026-06-22T15:39:23Z | main@16df652 | info | session
+SessionEnd (resume): 16 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+
+
+## 2026-06-22T13:21:14Z | main@16df652 | info | session
+SessionEnd (other): 16 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+
+
+## 2026-06-22T13:10:35Z | main@16df652 | done | exec
+export PATH="$HOME/google-cloud-sdk/bin:$HOME/.local/bin:$PATH"
+
+
+## 2026-06-22T13:08:57Z | main@16df652 | info | session
+SessionEnd (resume): 16 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+
+
+## 2026-06-22T11:40:44Z | main@16df652 | info | session
+SessionEnd (other): 16 item(s) carried forward
+
+Next steps:
+- `eval_stage2.py` ASR-BLEU + DNSMOS are recorded for the selected
+- Test `xla_grad_checkpoint=false` on the best Phase 3 candidate.
+- Test `depth_chunk_size=64` only if HBM remains safe.
+- Keep iter 24h defaults if larger candidates regress or OOM.
+- Use XProf to determine whether host/device input gaps exist.
+- Add opt-in `MPDeviceLoader`/prefetch only if profiling shows an
+- Sweep `num_workers=4/8` only if host feed is a bottleneck.
+- Quantify padding waste at `max_frames=400`.
+
+
+## 2026-06-22T11:38:55Z | main@16df652 | done | verify
+verify: 12 passed, 0 failed out of 12 on Stop
+
+
+## 2026-06-22T11:38:44Z | main@16df652 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
 ## 2026-06-22T11:01:48Z | main@72d2fe7 | done | edit
 edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.gitignore`
 
