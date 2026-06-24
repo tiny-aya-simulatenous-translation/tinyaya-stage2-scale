@@ -90,18 +90,23 @@ in W&B.
   spike). All `diag/*` + `val/per_codebook_acc_*` wired to W&B. Live TPU
   visibility rides the next smoke.
 
-## Phase 3 — W&B hyperparameter sweep
-Artifacts in `simultaneous-translation/sweeps/` (scaffolded in this PR):
-`sweep_stage2.yaml`, `README.md`.
-- [ ] `--sweep` flag in `train_hierarchical.py`: map flat `wandb.config` keys
-      → nested cfg overrides (`lr_lora`, `lr_depth`, `lora_r`,
-      `lora_alpha_mult`, `text_weight`, `warmup_steps`, `weight_decay`,
-      `max_steps`, `val_every`, `val_on_tpu`).
-- [ ] `configs/stage2_tpu_v6e_proxy.yaml` — short/cheap proxy config.
-- [ ] Verify hyperband early-termination kills weak trials; verify a trial
-      with text CE≈ln(V) is auto-rejectable (log a `sweep/text_ok` flag).
-- **DoD:** `wandb sweep … && wandb agent …` runs ≥3 proxy trials, dashboard
-  ranks them, winner HPs copy cleanly into the prod config.
+## Phase 3 — W&B hyperparameter sweep  ✅ DONE (code; live run is a user step)
+Plumbing via the existing CLI-override path (simpler than reading wandb.config
+under the late wandb.init): `wandb agent` passes each swept param as a CLI arg
+(`${args}` in `sweep_stage2.yaml`).
+- [x] `--sweep` flag + CLI args: `lr_lora`/`lr_depth`→optim, `text_weight`→loss,
+      `warmup_steps`/`weight_decay`/`max_steps`→train, `val_every`/`val_on_tpu`
+      →logging (all via load_config); `lora_r`/`lora_alpha_mult`→`lora.r`/
+      `lora.alpha` (=mult·r) explicit. **Unit-tested** (all 10 map correctly).
+- [x] `configs/stage2_tpu_v6e_proxy.yaml` — max_frames 200, max_steps 600,
+      cheap val, wandb on.
+- [x] `sweep/text_ok` flag (1.0 when train text_loss < 11.5) so the sweep can
+      reject text-stuck trials. Hyperband early_terminate already in the yaml.
+- [x] README runbook updated: CLI-args mechanism + **export TPU env before
+      `wandb agent`** (it inherits `${env}`).
+- **DoD (code):** ✅ override mapping unit-tested; sweep yaml + proxy config +
+  runbook ready. The live `wandb sweep … && wandb agent …` (≥3 trials, pick
+  winner) is a **user step** — needs the v6e-8 + `wandb login` (README §Runbook).
 
 ## Phase 4 — Full run + eval
 - [ ] Promote winning recipe → `configs/stage2_tpu_v6e_v2.yaml`.

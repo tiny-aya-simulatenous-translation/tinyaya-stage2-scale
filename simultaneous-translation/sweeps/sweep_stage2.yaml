@@ -30,7 +30,7 @@ parameters:
   lr_lora:        { distribution: log_uniform_values, min: 5.0e-5, max: 5.0e-4 }
   lr_depth:       { distribution: log_uniform_values, min: 1.0e-4, max: 8.0e-4 }
   lora_r:         { values: [16, 32, 64] }
-  lora_alpha_mult:{ values: [1, 2] }          # alpha = mult * r
+  lora_alpha_mult: { values: [1, 2] }         # alpha = mult * r
   text_weight:    { values: [0.1, 0.5, 1.0, 2.0] }
   warmup_steps:   { values: [100, 300, 600] }
   weight_decay:   { values: [0.0, 1.0e-3, 1.0e-2] }
@@ -39,8 +39,11 @@ parameters:
   val_every:      { value: 150 }
   val_on_tpu:     { value: true }
 
-# The training script reads these from wandb.config when --sweep is passed
-# (Phase 3 plumbing: map flat sweep keys -> nested cfg overrides).
+# wandb agent passes each swept parameter as a CLI arg via ${args}
+# (--lr_lora <v> --lora_r <v> ...). train_hierarchical.py parses them through
+# its existing CLI-override path; lora_r/lora_alpha_mult map to lora.r/lora.alpha.
+# RUN THE AGENT WITH THE TPU ENV EXPORTED (LD_LIBRARY_PATH, PJRT_DEVICE=TPU,
+# XLA_NO_SPECIAL_SCALARS=1, ...) -- ${env} inherits it. See sweeps/README.md.
 command:
   - ${env}
   - python
@@ -48,3 +51,4 @@ command:
   - --config
   - configs/stage2_tpu_v6e_proxy.yaml
   - --sweep
+  - ${args}

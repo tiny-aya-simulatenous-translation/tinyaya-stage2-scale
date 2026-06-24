@@ -867,6 +867,21 @@ def build_parser():
 
     p.add_argument("--backend", type=str, default=None, choices=["auto", "gpu", "tpu"])
     p.add_argument("--resume", type=str, default=None, help="checkpoint dir to resume from")
+
+    # --- W&B sweep knobs (passed as CLI args by `wandb agent` via ${args}) ---
+    # Generic ones (lr_lora/lr_depth -> optim, text_weight -> loss,
+    # weight_decay -> train, val_on_tpu -> logging) map through load_config by
+    # name; lora_r/lora_alpha_mult need the explicit r/alpha handling in main().
+    p.add_argument("--sweep", action="store_true",
+                   help="W&B sweep run: log sweep/text_ok health flag")
+    p.add_argument("--lr_lora", type=float, default=None)
+    p.add_argument("--lr_depth", type=float, default=None)
+    p.add_argument("--text_weight", type=float, default=None)
+    p.add_argument("--weight_decay", type=float, default=None)
+    p.add_argument("--val_on_tpu", type=lambda s: s.lower() in ("1", "true", "yes"), default=None)
+    p.add_argument("--lora_r", type=int, default=None)
+    p.add_argument("--lora_alpha_mult", type=int, default=None,
+                   help="lora.alpha = lora_alpha_mult * lora_r")
     return p
 
 
@@ -875,9 +890,29 @@ def main():
     overrides = {
         k: v
         for k, v in vars(args).items()
-        if k not in ("config", "dataset_mode", "data_dir", "resume")
+        # lora_r/lora_alpha_mult map to lora.r/lora.alpha (name mismatch) and
+        # `sweep` is a control flag -- all handled explicitly below.
+        if k not in ("config", "dataset_mode", "data_dir", "resume",
+                     "sweep", "lora_r", "lora_alpha_mult")
     }
     cfg = load_config(args.config, overrides)
+
+    # W&B sweep: LoRA rank/alpha (alpha = mult * r) need explicit mapping onto
+    # the nested `lora` section. Everything else (lr_lora/lr_depth/text_weight/
+    # weight_decay/warmup_steps/max_steps/val_every/val_on_tpu) flowed through
+    # load_config above by matching the cfg section key.
+    if args.lora_r is not None:
+        cfg.setdefault("lora", {})["r"] = args.lora_r
+    if args.lora_alpha_mult is not None:
+        _r = cfg.get("lora", {}).get("r", 16)
+        cfg.setdefault("lora", {})["alpha"] = args.lora_alpha_mult * _r
+    if args.sweep:
+        print(f"[sweep] overrides -> lr_lora={cfg['optim'].get('lr_lora')} "
+              f"lr_depth={cfg['optim'].get('lr_depth')} "
+              f"lora={cfg.get('lora')} text_weight={cfg['loss'].get('text_weight')} "
+              f"warmup={cfg['train'].get('warmup_steps')} "
+              f"wd={cfg['train'].get('weight_decay')} max_steps={cfg['train'].get('max_steps')}",
+              flush=True)
 
     # ---- distributed init (GPU or TPU)
     backend_type = cfg.get("backend", "auto")
@@ -2100,6 +2135,10 @@ def main():
                 }
                 for i, v in enumerate(avg["per_cb"]):
                     log[f"train/per_codebook_loss_{i}"] = v
+                if args.sweep:
+                    # Health flag so the sweep can auto-reject trials whose text
+                    # stream is stuck at random (CE ~ ln(text_vocab) ~ 12.5).
+                    log["sweep/text_ok"] = 1.0 if avg["text"] < 11.5 else 0.0
                 log["global_step"] = step
                 wandb.log(log)
             if is_tpu:
