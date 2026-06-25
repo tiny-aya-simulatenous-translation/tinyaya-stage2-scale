@@ -146,6 +146,26 @@ python scripts/gen_parallel.py
 
 Produces teacher-forced and autoregressive audio for listening comparison.
 
+## Stage 2 Training Recipe (W&B sweep-selected)
+
+The TPU production recipe (`configs/tpu/stage2_tpu_v6e_v2.yaml`) was chosen by a
+proxy-first W&B sweep (8 bayes + hyperband trials) before committing the 15k-step
+v6e-8 slot. **Winner `ryvims4h`** (`val/audio_loss=4.8899`):
+
+```yaml
+lora:   { r: 64, alpha: 128 }                  # biggest lever: lora_r=64 swept the top 6
+optim:  { lr_lora: 4.6e-4, lr_depth: 1.1e-4 }
+loss:   { text_weight: 0.1 }                   # audio-optimal; ~0.2 for more text headroom
+train:  { warmup_steps: 300, weight_decay: 0.01 }
+```
+
+Salient points: all 8 trials learned the text stream (`sweep/text_ok=1`, confirming the
+Phase 0 fix is robust); `lora_r=64` is the dominant lever; low `text_weight` favors audio
+(the model's output) at a small text cost.
+
+- **📊 W&B sweep:** https://wandb.ai/cataluna84/tinyaya-stage2-tpu/sweeps/9ba8h0ho · **🏆 winner:** https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/ryvims4h
+- **Full ranked results, reasoning, trade-offs, and promote→launch steps:** [`sweeps/README.md`](sweeps/README.md#sweep-results-9ba8h0ho)
+
 ## Training Data
 
 The model trains on Mimi-encoded parallel TR↔HI speech pairs:

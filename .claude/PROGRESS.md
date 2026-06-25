@@ -26,6 +26,383 @@ moved to `.claude/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-06-25T20:40:14Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/sweeps/README.md`
+
+
+## 2026-06-25T20:39:18Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/README.md`
+
+
+## 2026-06-25T20:37:13Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/README.md`
+
+
+## 2026-06-25T20:34:40Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T20:15:46Z | feat/tpu-metrics-sweeps-flat@5171e0c | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T20:15:18Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T20:14:43Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | edit
+edited `/tmp/claude-1000/-home-cataluna84-Workspace-tinyaya-stage2-scale/9d91a9c6-d22b-474c-8971-e137f68da904/scratchpad/sweep_results.md`
+
+
+## 2026-06-25T20:14:04Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T20:13:50Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T20:12:57Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T20:11:34Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T20:09:52Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T20:09:27Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T20:08:52Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T20:05:47Z | feat/tpu-metrics-sweeps-flat@5171e0c | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T20:03:50Z | feat/tpu-metrics-sweeps-flat@5171e0c | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T20:01:54Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T20:00:53Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T20:00:25Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T19:56:40Z | feat/tpu-metrics-sweeps-flat@5171e0c | info | session
+SessionEnd (resume): 10 item(s) carried forward
+
+Next steps:
+- Text stream learns (val/text_loss drops well below ln(V)≈12.5) OR the
+- `full_ft` (top-N layer unfreeze) is either active (non-empty group) or
+- 8-metric stability dashboard live in W&B (on-device, no per-step host
+- W&B sweep runnable end-to-end (`wandb sweep` → agent → dashboard) on a
+- One full run launched with the swept recipe; GPU ASR-BLEU/DNSMOS eval
+- (sweep) tune `text_weight` (0.1→?) now that padding no longer dominates;
+- Deferred (optional): Gradient Noise Scale, logit/activation RMS (a `--diag`
+- Promote winning recipe → `configs/stage2_tpu_v6e_v2.yaml`.
+
+
+## 2026-06-25T05:00:10Z | feat/tpu-metrics-sweeps-flat@5171e0c | info | session
+SessionEnd (other): 10 item(s) carried forward
+
+Next steps:
+- Text stream learns (val/text_loss drops well below ln(V)≈12.5) OR the
+- `full_ft` (top-N layer unfreeze) is either active (non-empty group) or
+- 8-metric stability dashboard live in W&B (on-device, no per-step host
+- W&B sweep runnable end-to-end (`wandb sweep` → agent → dashboard) on a
+- One full run launched with the swept recipe; GPU ASR-BLEU/DNSMOS eval
+- (sweep) tune `text_weight` (0.1→?) now that padding no longer dominates;
+- Deferred (optional): Gradient Noise Scale, logit/activation RMS (a `--diag`
+- Promote winning recipe → `configs/stage2_tpu_v6e_v2.yaml`.
+
+
+## 2026-06-25T04:50:26Z | feat/tpu-metrics-sweeps-flat@5171e0c | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T04:50:15Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T04:49:21Z | feat/tpu-metrics-sweeps-flat@5171e0c | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T04:48:36Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T04:48:18Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T04:00:15Z | feat/tpu-metrics-sweeps-flat@5171e0c | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T03:59:56Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:59:20Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:58:49Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:57:56Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:56:42Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | edit
+created `/tmp/claude-1000/-home-cataluna84-Workspace-tinyaya-stage2-scale/9d91a9c6-d22b-474c-8971-e137f68da904/scratchpad/run_sweep_agent.sh`
+
+
+## 2026-06-25T03:55:48Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:55:16Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:54:30Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:52:58Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:51:30Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:48:24Z | feat/tpu-metrics-sweeps-flat@5171e0c | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T03:47:09Z | feat/tpu-metrics-sweeps-flat@5171e0c | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T03:46:54Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | edit
+edited `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/pr8-flat-integration.md`
+
+
+## 2026-06-25T03:45:59Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:45:26Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:44:45Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:43:52Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:43:08Z | feat/tpu-metrics-sweeps-flat@5171e0c | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T03:42:46Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:41:31Z | feat/tpu-metrics-sweeps-flat@5171e0c | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T03:41:17Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:40:49Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:40:07Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:39:38Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:38:51Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:13:53Z | feat/tpu-metrics-sweeps-flat@5171e0c | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T03:13:41Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:12:58Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:12:29Z | feat/tpu-metrics-sweeps-flat@5171e0c | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T03:12:16Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:10:30Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:04:20Z | feat/tpu-metrics-sweeps-flat@5171e0c | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T03:00:49Z | feat/tpu-metrics-sweeps-flat@932c576 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/pyproject.toml`
+
+
+## 2026-06-25T02:59:31Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:59:07Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:57:35Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:50:26Z | feat/tpu-metrics-sweeps-flat@932c576 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T02:50:07Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:49:27Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:48:44Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:48:01Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:46:47Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:46:15Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:44:50Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:44:39Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:42:37Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:39:51Z | feat/tpu-metrics-sweeps-flat@932c576 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T02:38:18Z | feat/tpu-metrics-sweeps-flat@932c576 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T02:38:01Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:37:42Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:37:34Z | feat/tpu-metrics-sweeps-flat@932c576 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
 ## 2026-06-25T02:37:01Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
 cd /home/cataluna84/Workspace/tinyaya-stage2-scale
 
