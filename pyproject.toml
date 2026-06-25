@@ -2,7 +2,7 @@
 name = "tinyaya-stage2"
 version = "0.1.0"
 description = "TR-HI speech-to-speech translation Stage 2 training (TPU)"
-readme = "../README.md"
+readme = "README.md"
 requires-python = ">=3.12,<3.13"
 authors = [
     { name = "Mayank Bhaskar", email = "mayankbhaskar007@gmail.com" },
