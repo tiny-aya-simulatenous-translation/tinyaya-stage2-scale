@@ -38,3 +38,8 @@ jobs:
 
       - name: Shell scripts parse
         run: bash -n scripts/tpu/*.sh scripts/ci/*.sh
+
+      - name: Torch-free unit tests (sweep promote + config consistency)
+        run: |
+          python3 -m pip install --quiet pytest pyyaml
+          python3 -m pytest tests/test_sweep_promote.py -q

@@ -26,6 +26,164 @@ moved to `.claude/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-06-25T02:37:01Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:36:51Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:36:41Z | feat/tpu-metrics-sweeps-flat@992b638 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.claude/VERIFY.md`
+
+
+## 2026-06-25T02:36:31Z | feat/tpu-metrics-sweeps-flat@992b638 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/.github/workflows/ci.yml`
+
+
+## 2026-06-25T02:36:11Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:36:01Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:35:53Z | feat/tpu-metrics-sweeps-flat@992b638 | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/tests/test_sweep_promote.py`
+
+
+## 2026-06-25T02:34:48Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:34:38Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:34:23Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:34:03Z | feat/tpu-metrics-sweeps-flat@992b638 | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/scripts/promote_sweep_winner.py`
+
+
+## 2026-06-25T02:32:47Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:32:36Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:32:10Z | feat/tpu-metrics-sweeps-flat@992b638 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/sweeps/README.md`
+
+
+## 2026-06-25T02:31:45Z | feat/tpu-metrics-sweeps-flat@992b638 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/sweeps/sweep_stage2.yaml`
+
+
+## 2026-06-25T02:31:43Z | feat/tpu-metrics-sweeps-flat@992b638 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/sweeps/sweep_stage2.yaml`
+
+
+## 2026-06-25T02:31:18Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:31:05Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:30:54Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:30:10Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:29:12Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:27:09Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:26:06Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:24:58Z | feat/tpu-metrics-sweeps-flat@992b638 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T02:16:45Z | feat/tpu-metrics-sweeps-flat@992b638 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-25T02:16:28Z | feat/tpu-metrics-sweeps-flat@992b638 | done | edit
+edited `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/MEMORY.md`
+
+
+## 2026-06-25T02:16:18Z | feat/tpu-metrics-sweeps-flat@992b638 | done | edit
+created `/home/cataluna84/.claude/projects/-home-cataluna84-Workspace-tinyaya-stage2-scale/memory/pr8-flat-integration.md`
+
+
+## 2026-06-25T02:16:03Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:15:48Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:15:09Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:14:42Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:14:23Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:14:08Z | feat/tpu-metrics-sweeps-flat@992b638 | done | edit
+created `/tmp/claude-1000/-home-cataluna84-Workspace-tinyaya-stage2-scale/9d91a9c6-d22b-474c-8971-e137f68da904/scratchpad/pr_body.md`
+
+
+## 2026-06-25T02:12:51Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:12:23Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:12:12Z | feat/tpu-metrics-sweeps-flat@992b638 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:11:25Z | feat/tpu-metrics-sweeps-flat@bf41b3d | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-25T02:11:15Z | feat/tpu-metrics-sweeps-flat@bf41b3d | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
 ## 2026-06-25T02:10:55Z | feat/tpu-metrics-sweeps-flat@bf41b3d | done | exec
 cd /home/cataluna84/Workspace/tinyaya-stage2-scale
 

@@ -73,6 +73,11 @@ done
 ```
 
 ```bash
+# torch-free unit tests (sweep promote helper + sweep/config consistency)
+python3 tests/test_sweep_promote.py
+```
+
+```bash
 # secrets check on tracked + new files
 ! grep -rnE '(hf_[a-zA-Z0-9]{20,}|sk-[a-zA-Z0-9]{20,}|gh[ps]_[a-zA-Z0-9]{30,}|AKIA[A-Z0-9]{16})' \
     --exclude-dir='.venv' --exclude-dir='__pycache__' --exclude-dir='.mypy_cache' \

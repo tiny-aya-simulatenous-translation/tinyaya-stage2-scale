@@ -5,7 +5,7 @@
 # (W&B's built-in ASHA-equivalent) so bad trials die fast.
 #
 # HOW TO RUN (see sweeps/README.md for the full runbook):
-#   wandb sweep simultaneous-translation/sweeps/sweep_stage2.yaml
+#   wandb sweep sweeps/sweep_stage2.yaml
 #   wandb agent <entity>/<project>/<sweep_id>      # on the TPU VM
 #
 # NOTE: on a single v6e-8, trials run SEQUENTIALLY (one SPMD program per
@@ -49,6 +49,6 @@ command:
   - python
   - ${program}
   - --config
-  - configs/stage2_tpu_v6e_proxy.yaml
+  - configs/tpu/stage2_tpu_v6e_proxy.yaml
   - --sweep
   - ${args}
