@@ -27,36 +27,45 @@ Key design choices:
 ## Repository Structure
 
 ```
-├── configs/                    # Training configs (YAML)
-│   └── stage2_26k_parallel.yaml
+├── configs/                    # Training configs (YAML), split per backend
+│   ├── gpu/
+│   │   └── stage2_26k_parallel.yaml   # GPU parallel-stream run
+│   └── tpu/
+│       ├── stage2_tpu_v6e_v2.yaml         # production 15k v6e-8 run
+│       ├── stage2_tpu_v6e_valfix_smoke.yaml
+│       └── stage2_tpu_v6e_proxy.yaml      # W&B sweep proxy
 ├── scripts/
-│   ├── train_hierarchical.py   # Main training script (GPU, FSDP)
+│   ├── train_hierarchical.py   # Main training script (SHARED, backend-dispatched)
 │   ├── gen_parallel.py         # Generate audio (teacher-forced + autoregressive)
 │   ├── eval_checkpoint.py      # Eval: ASR transcription + BLEU scoring
 │   ├── validate_checkpoint.py  # Verify checkpoint integrity
-│   ├── validate_full_pipeline.sh # End-to-end pipeline test
-│   └── make_splits.py          # Create train/val splits from encoded data
+│   ├── make_splits.py          # Create train/val splits from encoded data
+│   ├── ci/check_backend_seam.sh # CI: forbid module-level torch_xla in shared code
+│   └── tpu/                    # TPU run-infra (queued-resource launch, redeploy, ops)
+├── sweeps/                     # W&B hyperparameter sweep (proxy-first)
 ├── src/
-│   ├── model/
-│   │   ├── composite.py        # TinyAyaMoshiComposite — full model
-│   │   ├── backbone.py         # Cohere2 backbone with audio/text embeddings
-│   │   ├── depth_decoder.py    # Moshiko depth decoder extraction
-│   │   ├── lora_setup.py       # LoRA application + parameter groups
-│   │   └── surgery.py          # Projection layer + weight extraction
-│   ├── data/
-│   │   ├── dataset.py          # Parallel stream dataset + codebook delay
-│   │   ├── collator.py         # Batch collation with padding
-│   │   ├── interleaver.py      # Text-audio alignment interleaving
-│   │   └── mimi_encoder.py     # Mimi codec encode/decode
-│   ├── training/
-│   │   ├── checkpointing.py    # FSDP-aware save/load + HF push
-│   │   └── translation_loss.py # Hierarchical CE loss (text + per-codebook audio)
+│   ├── model/                  # composite, backbone, depth_decoder, lora_setup, surgery
+│   ├── data/                   # dataset, collator (parallel stream), interleaver, mimi
+│   ├── training/               # checkpointing, translation_loss (padding-weighted text CE)
 │   └── backend/
+│       ├── base.py             # Backend abstraction (get_backend dispatch)
 │       ├── gpu_backend.py      # CUDA + FSDP backend
-│       └── base.py             # Backend abstraction
+│       └── tpu_backend.py      # XLA/SPMD backend — ONLY module that imports torch_xla
+├── docs/                       # run plans + memory-system docs
+├── .claude/                    # External Memory System (PLAN/PROGRESS/VERIFY/memories, hooks, skills)
+├── AGENTS.md                   # agent briefing + TPU↔GPU seam rules
 ├── pyproject.toml
 └── uv.lock
 ```
+
+### Backends (GPU ↔ TPU)
+
+The repo is **dual-backend**. The same `src/` and
+`scripts/train_hierarchical.py` run on either GPU or TPU; only **configs**
+(`configs/gpu/` vs `configs/tpu/`) and **launchers** (`torchrun` vs
+`scripts/tpu/`) differ. `torch_xla` is confined to
+`src/backend/tpu_backend.py` (enforced by `scripts/ci/check_backend_seam.sh`),
+so GPU runs and CPU-only tests never import it.
 
 ## Quick Start
 
@@ -77,25 +86,44 @@ uv sync
 ### Training (single GPU)
 
 ```bash
-uv run python scripts/train_hierarchical.py --config configs/stage2_26k_parallel.yaml
+uv run python scripts/train_hierarchical.py --config configs/gpu/stage2_26k_parallel.yaml
 ```
 
 ### Training (multi-GPU with FSDP)
 
 ```bash
 torchrun --nproc_per_node=2 scripts/train_hierarchical.py \
-    --config configs/stage2_26k_parallel.yaml
+    --config configs/gpu/stage2_26k_parallel.yaml
 ```
 
 ### Resume from checkpoint
 
 ```bash
 torchrun --nproc_per_node=2 scripts/train_hierarchical.py \
-    --config configs/stage2_26k_parallel.yaml \
+    --config configs/gpu/stage2_26k_parallel.yaml \
     --resume checkpoints/stage2_26k_parallel/step_002750
 ```
 
 Note: model weights are loaded before FSDP wrapping. Optimizer state is restored via `FSDP.optim_state_dict_to_load()`.
+
+### Training (TPU v6e-8, SPMD/FSDPv2)
+
+The TPU path uses the same training script with a TPU config and the
+launchers under `scripts/tpu/`. On a provisioned v6e-8 (single host,
+8 chips):
+
+```bash
+# production 15k release run (resumes automatically)
+bash scripts/tpu/launch_release.sh configs/tpu/stage2_tpu_v6e_v2.yaml
+
+# short smoke first (inline-val fix, parallel stream, diag dashboard)
+bash scripts/tpu/launch_release.sh configs/tpu/stage2_tpu_v6e_valfix_smoke.yaml
+```
+
+`XLA_NO_SPECIAL_SCALARS=1` (set by the launchers) is required — it
+disables XLA's "assume no NaN/Inf" rewrites that otherwise corrupt the
+inline-validation loss scalar. A proxy-first W&B hyperparameter sweep
+lives in `sweeps/` (see `sweeps/README.md`).
 
 ### Evaluation
 
@@ -117,6 +145,26 @@ python scripts/gen_parallel.py
 ```
 
 Produces teacher-forced and autoregressive audio for listening comparison.
+
+## Stage 2 Training Recipe (W&B sweep-selected)
+
+The TPU production recipe (`configs/tpu/stage2_tpu_v6e_v2.yaml`) was chosen by a
+proxy-first W&B sweep (8 bayes + hyperband trials) before committing the 15k-step
+v6e-8 slot. **Winner `ryvims4h`** (`val/audio_loss=4.8899`):
+
+```yaml
+lora:   { r: 64, alpha: 128 }                  # biggest lever: lora_r=64 swept the top 6
+optim:  { lr_lora: 4.6e-4, lr_depth: 1.1e-4 }
+loss:   { text_weight: 0.1 }                   # audio-optimal; ~0.2 for more text headroom
+train:  { warmup_steps: 300, weight_decay: 0.01 }
+```
+
+Salient points: all 8 trials learned the text stream (`sweep/text_ok=1`, confirming the
+Phase 0 fix is robust); `lora_r=64` is the dominant lever; low `text_weight` favors audio
+(the model's output) at a small text cost.
+
+- **📊 W&B sweep:** https://wandb.ai/cataluna84/tinyaya-stage2-tpu/sweeps/9ba8h0ho · **🏆 winner:** https://wandb.ai/cataluna84/tinyaya-stage2-tpu/runs/ryvims4h
+- **Full ranked results, reasoning, trade-offs, and promote→launch steps:** [`sweeps/README.md`](sweeps/README.md#sweep-results-9ba8h0ho)
 
 ## Training Data
 
