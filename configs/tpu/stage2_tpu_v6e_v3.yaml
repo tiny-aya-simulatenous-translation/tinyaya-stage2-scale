@@ -71,6 +71,17 @@ loss:
   # Phase A: label smoothing (applied to the TRAIN loss only; the val call
   # leaves it at 0 so val/loss stays a clean generalization metric).
   label_smoothing: 0.1
+  # Phase C: deep-codebook learning. Per-codebook loss multipliers (GENTLE deep
+  # boost -- NOT the aggressive [1..128]; that can starve cb0) + progressive
+  # coarse->fine unmasking: supervise the first unmask_k0 codebooks, then ramp to
+  # all 8 over the first progressive_unmask_fraction of training. cb0 stabilizes
+  # the semantic stream before the fine residual codebooks join.
+  # XLA note: the weight vector is cached by value, so the ramp recompiles only a
+  # few times (one-time); validate on the smoke. Omit these keys to disable
+  # (uniform per-codebook mean = the v2 behaviour).
+  per_codebook_multipliers: [1.0, 1.0, 1.5, 1.5, 2.0, 2.0, 2.0, 2.0]
+  progressive_unmask_fraction: 0.10
+  unmask_k0: 1
 
 lora:
   # Phase A: r 64 -> 16, alpha 128 -> 32 (alpha = 2r). Lower capacity is the

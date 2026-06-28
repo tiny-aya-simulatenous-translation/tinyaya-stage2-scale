@@ -47,6 +47,7 @@ def compute_hierarchical_translation_loss(
     text_padding_weight: float = 0.01,
     zero_padding_weight: float = 0.0,
     label_smoothing: float = 0.0,
+    cb_weights: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
     # Next-token shift
     tl = text_logits[:, :-1].contiguous()
@@ -125,7 +126,15 @@ def compute_hierarchical_translation_loss(
         ).view(B, Tm1)
         per_cb.append(_masked_sum(ce_c) / denom)
     per_codebook = torch.stack(per_cb)  # [CB]
-    audio_loss = per_codebook.mean()
+    if cb_weights is not None:
+        # Phase C: per-codebook weighting + progressive unmasking. cb_weights is a
+        # [CB] tensor of multipliers; masked (unmasked-later) codebooks carry 0, so
+        # this is a weighted mean over the ACTIVE codebooks (0-weight ones drop out
+        # of both numerator and denominator -> no gradient).
+        w = cb_weights.to(per_codebook.dtype)
+        audio_loss = (per_codebook * w).sum() / w.sum().clamp(min=1.0)
+    else:
+        audio_loss = per_codebook.mean()
 
     loss = text_weight * text_loss + audio_weight * audio_loss
     return {

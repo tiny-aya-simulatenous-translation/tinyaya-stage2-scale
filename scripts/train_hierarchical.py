@@ -183,6 +183,7 @@ from src.training.checkpointing import (
     save_checkpoint,
 )
 from src.training.scheduler import WarmupCosineScheduler
+from src.training.codebook_schedule import codebook_weights
 from src.training.early_stop import early_stop_step
 from src.training.translation_loss import compute_hierarchical_translation_loss
 
@@ -727,9 +728,8 @@ def run_validation(
                 audio_weight=loss_cfg["audio_weight"],
                 text_padding_weight=loss_cfg.get("text_padding_weight", 0.01),
                 zero_padding_weight=loss_cfg.get("zero_padding_weight", 0.0),
-                # Phase A regularizer (train only; val stays clean CE for a true
-                # generalization metric -> see the val call site).
-                label_smoothing=loss_cfg.get("label_smoothing", 0.0),
+                # val stays CLEAN CE (no label smoothing) for a true
+                # generalization metric; smoothing is applied on the train call.
             )
             # First-batch NaN localization (one host sync; diagnostic only).
             # Pinpoints whether the non-finite originates in the backbone
@@ -1510,6 +1510,33 @@ def main():
     audio_w = cfg["loss"]["audio_weight"]
     text_pad_w = cfg["loss"].get("text_padding_weight", 0.01)
     zero_pad_w = cfg["loss"].get("zero_padding_weight", 0.0)
+    # Phase A: label smoothing on the TRAIN loss only (val stays clean CE).
+    label_smooth = cfg["loss"].get("label_smoothing", 0.0)
+    # Phase C: per-codebook loss weighting + progressive coarse->fine unmasking.
+    # OFF unless configured (cb_weights=None -> uniform per-codebook mean = the v2
+    # behaviour). When on, the [CB] weight vector is computed per step but CACHED by
+    # value: identical vectors reuse one device tensor (one XLA graph), so only the
+    # handful of distinct vectors during the unmask ramp recompile (one-time).
+    _cb_multipliers = cfg["loss"].get("per_codebook_multipliers", None)
+    _cb_unmask_frac = float(cfg["loss"].get("progressive_unmask_fraction", 0.0))
+    _cb_unmask_k0 = int(cfg["loss"].get("unmask_k0", 1))
+    _cb_enabled = _cb_multipliers is not None or _cb_unmask_frac > 0
+    _cb_cache: dict[tuple, "torch.Tensor"] = {}
+
+    def _cb_weights_for(s: int):
+        """Device [CB] weight tensor for step ``s`` (cached by value), or None."""
+        if not _cb_enabled:
+            return None
+        key = tuple(
+            codebook_weights(
+                s, max_steps, num_codebooks, _cb_multipliers, _cb_unmask_frac, _cb_unmask_k0
+            )
+        )
+        t = _cb_cache.get(key)
+        if t is None:
+            t = torch.tensor(key, device=device, dtype=torch.float32)
+            _cb_cache[key] = t
+        return t
     perf_cfg = cfg.get("perf", {})
     perf_enabled = bool(perf_cfg.get("enabled", False))
     perf_warmup_skip_steps = int(perf_cfg.get("warmup_skip_steps", 50))
@@ -1726,6 +1753,8 @@ def main():
                             audio_weight=audio_w,
                             text_padding_weight=text_pad_w,
                             zero_padding_weight=zero_pad_w,
+                            label_smoothing=label_smooth,  # Phase A: train-only regularizer
+                            cb_weights=_cb_weights_for(step),  # Phase C (None if disabled)
                         )
                 loss = losses["loss"] / grad_accum
                 with trace_ctx("backward"):
