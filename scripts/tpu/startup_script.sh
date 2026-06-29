@@ -18,7 +18,10 @@ REPO_URL="${REPO_URL:-https://github.com/tiny-aya-simulatenous-translation/tinya
 REPO_BRANCH="${REPO_BRANCH:-feat/tpu-support}"
 REPO_DIR="${REPO_DIR:-/opt/tinyaya}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.12.13}"
-HF_DATASET="${HF_DATASET:-tiny-aya-translate/fleurs-tr-hi-mimi-encoded}"
+# v0.3: the SYNTHETIC FLORES/OPUS/conversational corpus (1.24M Mimi-encoded
+# pairs). NOTE: this is the non-`fleurs-` repo. v0.1 trained on this; v0.2
+# regressed to the `fleurs-` sibling by accident -- see the model cards.
+HF_DATASET="${HF_DATASET:-tiny-aya-translate/tr-hi-mimi-encoded}"
 DATA_DIR="${DATA_DIR:-/mnt/data}"
 SECRET_HF="${SECRET_HF:-hf-token}"
 SECRET_WANDB="${SECRET_WANDB:-wandb-api-key}"
@@ -129,32 +132,31 @@ fi
 
 # ----- 6. dataset to /mnt/data (resumable) -----
 # We deliberately do NOT set HF_HUB_ENABLE_HF_TRANSFER here: hf_transfer isn't
-# pinned in the lockfile, and the speedup isn't material for FLEURS.
+# pinned in the lockfile. (The synthetic repo is ~11.7 GB across 9 batch
+# tarballs; the download dominates startup but is a one-time cost per host.)
 sudo mkdir -p "$DATA_DIR"
 sudo chown "$USER:$USER" "$DATA_DIR"
 uv run huggingface-cli download "$HF_DATASET" \
     --repo-type dataset \
     --local-dir "$DATA_DIR"
 
-# The HF dataset ships the .pt encoded tensors AND alignment JSONs together
-# inside two tarballs under packed/. Both tarballs contain a top-level
-# encoded/ directory, so we use --strip-components=1 to flatten everything
-# into $DATA_DIR/encoded/ where the dataset code expects them
-# (cf. configs/*.yaml encoded_dir + src/data/dataset.py _resolve fallback).
-# Idempotent: skip extraction if the marker file already exists.
-if [ -d "$DATA_DIR/packed" ] && [ ! -f "$DATA_DIR/encoded/.unpacked" ]; then
+# The synthetic tr-hi-mimi-encoded repo ships the encoded .pt tensors AND their
+# alignment JSONs bundled in mimi_encoded_batch*.tar.gz (each with a top-level
+# encoded/ dir), plus splits/{train,val}.jsonl. Extract every batch into
+# $DATA_DIR so files land at $DATA_DIR/encoded/<name>.pt -- src/data/dataset.py
+# _resolve() matches on the BASENAME, so no --strip-components needed.
+# ~1.24M samples => ~4M small files (fits: ~12.5M inodes free on the v6e VM).
+# Idempotent: skip extraction once the marker file exists.
+if ls "$DATA_DIR"/mimi_encoded_batch*.tar.gz >/dev/null 2>&1 \
+        && [ ! -f "$DATA_DIR/encoded/.unpacked" ]; then
     sudo mkdir -p "$DATA_DIR/encoded"
     sudo chown "$USER:$USER" "$DATA_DIR/encoded"
-    if [ -f "$DATA_DIR/packed/encoded_pt.tar.gz" ]; then
-        echo "[startup] extracting packed/encoded_pt.tar.gz -> $DATA_DIR/encoded"
-        tar -xzf "$DATA_DIR/packed/encoded_pt.tar.gz" \
-            -C "$DATA_DIR/encoded" --strip-components=1
-    fi
-    if [ -f "$DATA_DIR/packed/encoded_alignments.tar.gz" ]; then
-        echo "[startup] extracting packed/encoded_alignments.tar.gz -> $DATA_DIR/encoded"
-        tar -xzf "$DATA_DIR/packed/encoded_alignments.tar.gz" \
-            -C "$DATA_DIR/encoded" --strip-components=1
-    fi
+    for tb in "$DATA_DIR"/mimi_encoded_batch*.tar.gz; do
+        echo "[startup] extracting $(basename "$tb") -> $DATA_DIR/encoded"
+        tar -xzf "$tb" -C "$DATA_DIR"
+    done
+    n_pt=$(find "$DATA_DIR/encoded" -maxdepth 1 -name '*.pt' | wc -l)
+    echo "[startup] extracted $n_pt encoded .pt files"
     touch "$DATA_DIR/encoded/.unpacked"
 fi
 
