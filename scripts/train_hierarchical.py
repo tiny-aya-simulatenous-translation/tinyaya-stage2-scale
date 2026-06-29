@@ -185,6 +185,7 @@ from src.training.checkpointing import (
 from src.training.scheduler import WarmupCosineScheduler
 from src.training.codebook_schedule import codebook_weights
 from src.training.early_stop import early_stop_step
+from src.training.multitask import composite_val_loss, text_weight_at
 from src.training.param_classify import depth_block_layer_index, is_depth_block
 from src.training.translation_loss import compute_hierarchical_translation_loss
 
@@ -857,10 +858,19 @@ def run_validation(
     if nf < n:
         print(f"  [val] skipped {n - int(nf)}/{n} non-finite val batches", flush=True)
     inv = 1.0 / nf
+    _vt = (acc_text * inv).item()
+    _va = (acc_audio * inv).item()
     return {
         "val/loss": (acc_loss * inv).item(),
-        "val/text_loss": (acc_text * inv).item(),
-        "val/audio_loss": (acc_audio * inv).item(),
+        "val/text_loss": _vt,
+        "val/audio_loss": _va,
+        # Phase D: composite of the RAW stream losses (audio-heavier) — the metric
+        # for best_by_val + early stopping, so neither stream can be sacrificed.
+        "val/composite": composite_val_loss(
+            _vt, _va,
+            float(loss_cfg.get("composite_text_w", 0.4)),
+            float(loss_cfg.get("composite_audio_w", 0.6)),
+        ),
         "val/cb0_acc": (cc / ct) if ct > 0 else 0.0,
         "val/per_codebook_loss": (per_cb_sum * inv).detach().cpu().tolist(),
         "val/per_codebook_acc": (
@@ -1556,6 +1566,27 @@ def main():
     zero_pad_w = cfg["loss"].get("zero_padding_weight", 0.0)
     # Phase A: label smoothing on the TRAIN loss only (val stays clean CE).
     label_smooth = cfg["loss"].get("label_smoothing", 0.0)
+    # Phase D: text_weight curriculum (anneal start->end over the first frac of
+    # the run). Quantised -> only a few distinct text_weight values occur, so XLA
+    # recompiles a bounded number of times (a smooth per-step ramp would recompile
+    # every step). Disabled (-> static text_w) when frac<=0 or start==end.
+    _tw_start = float(cfg["loss"].get("text_weight_start", text_w))
+    _tw_end = float(cfg["loss"].get("text_weight_end", text_w))
+    _tw_frac = float(cfg["loss"].get("text_weight_curriculum_frac", 0.0))
+    _tw_quantum = float(cfg["loss"].get("text_weight_quantum", 0.05))
+    _tw_enabled = _tw_frac > 0 and _tw_start != _tw_end
+
+    def _text_weight_for(s: int) -> float:
+        """Train-loss text_weight for step ``s`` (curriculum, or static)."""
+        if not _tw_enabled:
+            return text_w
+        return text_weight_at(s, max_steps, _tw_start, _tw_end, _tw_frac, _tw_quantum)
+    if _tw_enabled:
+        print(
+            f"  [text-curriculum] text_weight {_tw_start}->{_tw_end} over first "
+            f"{_tw_frac:.0%} of {max_steps} steps (quantum {_tw_quantum})",
+            flush=True,
+        )
     # Phase C: per-codebook loss weighting + progressive coarse->fine unmasking.
     # OFF unless configured (cb_weights=None -> uniform per-codebook mean = the v2
     # behaviour). When on, the [CB] weight vector is computed per step but CACHED by
@@ -1793,7 +1824,7 @@ def main():
                             audio_targets,
                             mask,
                             loss_mask,
-                            text_weight=text_w,
+                            text_weight=_text_weight_for(step),  # Phase D curriculum
                             audio_weight=audio_w,
                             text_padding_weight=text_pad_w,
                             zero_padding_weight=zero_pad_w,
@@ -2328,7 +2359,11 @@ def main():
             # failed/empty val must never crash the training run.
             val_ok = bool(val) and "val/loss" in val
             if val_ok and is_main:
-                print(f"  val/loss={val['val/loss']:.4f} cb0_acc={val['val/cb0_acc'] * 100:.1f}%")
+                print(
+                    f"  val/composite={val.get('val/composite', float('nan')):.4f} "
+                    f"(text={val['val/text_loss']:.4f} audio={val['val/audio_loss']:.4f}) "
+                    f"val/loss={val['val/loss']:.4f} cb0_acc={val['val/cb0_acc'] * 100:.1f}%"
+                )
                 _cba = val.get("val/per_codebook_acc")
                 if _cba:
                     print(
@@ -2349,8 +2384,11 @@ def main():
                 wandb.log(log)
             _improved = False
             if val_ok:
+                # Phase D: select/early-stop on the composite (audio-heavier) metric;
+                # fall back to raw val/loss if composite is absent (older configs).
+                _stop_metric = val.get("val/composite", val.get("val/loss"))
                 _dec = early_stop_step(
-                    val["val/loss"], best_val, _patience_left,
+                    _stop_metric, best_val, _patience_left,
                     early_stop_patience, early_stop_min_delta,
                 )
                 _improved, best_val, _patience_left = (

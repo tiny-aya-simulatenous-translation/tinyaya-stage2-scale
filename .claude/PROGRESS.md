@@ -26,6 +26,233 @@ moved to `.claude/archive/PROGRESS-YYYY-Qn.md` by the
 
 ---
 
+## 2026-06-29T04:30:49Z | feat/v0.3-implementation@6198a56 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T04:30:18Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T04:30:11Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T04:29:59Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/configs/tpu/stage2_tpu_v6e_v3.yaml`
+
+
+## 2026-06-29T04:29:37Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/scripts/train_hierarchical.py`
+
+
+## 2026-06-29T04:29:07Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/scripts/train_hierarchical.py`
+
+
+## 2026-06-29T04:29:01Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/scripts/train_hierarchical.py`
+
+
+## 2026-06-29T04:28:55Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/scripts/train_hierarchical.py`
+
+
+## 2026-06-29T04:28:44Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/scripts/train_hierarchical.py`
+
+
+## 2026-06-29T04:28:36Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/scripts/train_hierarchical.py`
+
+
+## 2026-06-29T04:28:22Z | feat/v0.3-implementation@37111e6 | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/tests/test_multitask.py`
+
+
+## 2026-06-29T04:28:04Z | feat/v0.3-implementation@37111e6 | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/src/training/multitask.py`
+
+
+## 2026-06-29T04:26:08Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T04:25:56Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T04:24:16Z | feat/v0.3-implementation@37111e6 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-29T04:23:07Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T04:21:04Z | feat/v0.3-implementation@37111e6 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-29T04:20:35Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T04:19:53Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/docs/hf-model-card-tr-hi-s2st-v0.1.md`
+
+
+## 2026-06-29T04:19:44Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/docs/hf-model-card-tr-hi-s2st-v0.1.md`
+
+
+## 2026-06-29T04:19:39Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/docs/hf-model-card-tr-hi-s2st-v0.1.md`
+
+
+## 2026-06-29T04:19:32Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/docs/hf-model-card-tr-hi-s2st-v0.1.md`
+
+
+## 2026-06-29T04:19:21Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/docs/hf-model-card-tr-hi-s2st-v0.1.md`
+
+
+## 2026-06-29T04:17:30Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T04:14:34Z | feat/v0.3-implementation@37111e6 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-29T04:14:13Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/docs/hf-model-card-tr-hi-s2st-v0.2.md`
+
+
+## 2026-06-29T04:13:47Z | feat/v0.3-implementation@37111e6 | done | edit
+created `/home/cataluna84/Workspace/tinyaya-stage2-scale/docs/hf-model-card-tr-hi-s2st-v0.3.md`
+
+
+## 2026-06-29T04:13:13Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/docs/hf-model-card-tr-hi-s2st-v0.2.md`
+
+
+## 2026-06-29T04:13:02Z | feat/v0.3-implementation@37111e6 | done | edit
+edited `/home/cataluna84/Workspace/tinyaya-stage2-scale/docs/hf-model-card-tr-hi-s2st-v0.2.md`
+
+
+## 2026-06-29T04:12:09Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T04:10:42Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T04:10:21Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T04:09:32Z | feat/v0.3-implementation@37111e6 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-29T04:08:22Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T04:07:02Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T04:03:41Z | feat/v0.3-implementation@37111e6 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-29T03:57:49Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale
+
+
+## 2026-06-29T03:56:49Z | feat/v0.3-implementation@37111e6 | done | exec
+timeout 90 gcloud compute tpus tpu-vm ssh tinyaya-stage2-spot-v6e8-eu --zone=europe-west4-a --project=ml-pipelines-315702 --worker=0 --command='
+
+
+## 2026-06-29T03:56:00Z | feat/v0.3-implementation@37111e6 | done | exec
+timeout 90 gcloud compute tpus tpu-vm ssh tinyaya-stage2-spot-v6e8-eu --zone=europe-west4-a --project=ml-pipelines-315702 --worker=0 --command='
+
+
+## 2026-06-29T03:43:29Z | feat/v0.3-implementation@37111e6 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-29T03:43:18Z | feat/v0.3-implementation@37111e6 | done | exec
+timeout 1500 gcloud compute tpus tpu-vm ssh tinyaya-stage2-spot-v6e8-eu --zone=europe-west4-a --project=ml-pipelines-315702 --worker=0 --command='
+
+
+## 2026-06-29T03:24:16Z | feat/v0.3-implementation@37111e6 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-29T03:24:06Z | feat/v0.3-implementation@37111e6 | done | exec
+timeout 1100 gcloud compute tpus tpu-vm ssh tinyaya-stage2-spot-v6e8-eu --zone=europe-west4-a --project=ml-pipelines-315702 --worker=0 --command='
+
+
+## 2026-06-29T03:23:28Z | feat/v0.3-implementation@37111e6 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-29T03:23:21Z | feat/v0.3-implementation@37111e6 | done | exec
+timeout 900 gcloud compute tpus tpu-vm ssh tinyaya-stage2-spot-v6e8-eu --zone=europe-west4-a --project=ml-pipelines-315702 --worker=0 --command='
+
+
+## 2026-06-29T03:18:03Z | feat/v0.3-implementation@37111e6 | fail | verify
+verify: 11 passed, 1 failed out of 12 on Stop
+
+FAIL [1] # the TPU↔GPU seam holds: torch_xla must NOT leak into shared model/data code
+    src/model/scan_utils.py:125:        from torch_xla.experimental.scan_layers import scan_layers
+
+
+## 2026-06-29T03:17:42Z | feat/v0.3-implementation@37111e6 | done | exec
+for i in $(seq 1 120); do
+
+
+## 2026-06-29T03:16:51Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale; TRC_PROFILE=v6e-8-eu \
+
+
+## 2026-06-29T03:14:14Z | feat/v0.3-implementation@37111e6 | done | exec
+cd /home/cataluna84/Workspace/tinyaya-stage2-scale; TB=/tmp/claude-1000/-home-cataluna84-Workspace-tinyaya-stage2-scale/9d91a9c6-d22b-474c-8971-e137f68da904/scratchpad/tinyaya-v3-$(date -u +%Y%m%dT%H%M%SZ).tar.gz; tar --exclude-vcs \
+
+
+## 2026-06-29T03:05:44Z | feat/v0.3-implementation@37111e6 | done | exec
+git add configs/tpu/stage2_tpu_v6e_v3_smoke.yaml docs/v0.3-implementation-plan.md .claude/PROGRESS.md && git commit -q -F - <<'EOF'
+
+
 ## 2026-06-29T03:01:21Z | feat/v0.3-implementation@b577e22 | fail | verify
 verify: 11 passed, 1 failed out of 12 on Stop
 

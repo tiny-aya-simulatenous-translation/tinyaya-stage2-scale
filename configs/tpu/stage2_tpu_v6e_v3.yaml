@@ -63,9 +63,24 @@ train:
   final_canonical_save: true
 
 loss:
-  # Phase D will add a curriculum / composite metric; static 0.2 for now.
+  # text_weight: static fallback used only when the Phase-D curriculum is OFF
+  # (text_weight_curriculum_frac=0 or start==end).
   text_weight: 0.2
   audio_weight: 1.0
+  # Phase D: multitask balance.
+  #  - text_weight CURRICULUM: protect the inner-monologue early (audio heads are
+  #    still random), then shift capacity to audio. Anneal start->end over the
+  #    first `curriculum_frac` of the run; quantised so XLA recompiles only a few
+  #    times (a smooth per-step ramp would recompile every step).
+  text_weight_start: 0.5
+  text_weight_end: 0.3
+  text_weight_curriculum_frac: 0.25
+  text_weight_quantum: 0.05
+  #  - composite val metric = weighted mean of the RAW stream losses (audio-heavier);
+  #    this is what best_by_val + early stopping select on, so neither stream can be
+  #    sacrificed to game the other.
+  composite_text_w: 0.4
+  composite_audio_w: 0.6
   text_padding_weight: 0.01
   zero_padding_weight: 0.0
   # Phase A: label smoothing (applied to the TRAIN loss only; the val call
