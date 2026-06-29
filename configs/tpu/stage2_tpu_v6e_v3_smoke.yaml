@@ -60,8 +60,11 @@ lora:
   target_modules: [q_proj, v_proj, embed_tokens]
   lora_exclude_top: 2
   num_full_ft_layers: 0
-  # Phase C3: ENABLE for the smoke -> validate depth_blocks group + grad flow.
-  depth_unfreeze_blocks: 2
+  # Phase C3: 0 = production parity (lever is opt-in/off for v0.3). depth_unfreeze=2
+  # OOM'd on v6e-8 (needed 28.96G > 27.87G free) -- the +205M trainable + AdamW state
+  # + grad-ckpt backward exceeds HBM. Run #1 validates the unmask-caching path that
+  # actually ships. C3 grad flow validated separately at reduced batch (run #2).
+  depth_unfreeze_blocks: 0
 
 optim:
   lr_lora: 1.0e-4
