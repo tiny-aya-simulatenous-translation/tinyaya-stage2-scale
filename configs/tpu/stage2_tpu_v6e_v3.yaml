@@ -149,3 +149,14 @@ perf:
   enabled: true
   warmup_skip_steps: 50
   xprof_trace_labels: false
+
+# Phase E: SpecAugment-on-codes (flag-gated; DEFAULT OFF for the first v0.3 run,
+# enable as an ablation / sweep axis). Masks random time spans + drops whole
+# codebooks of the INPUT (user) audio stream only -- never the targets, never
+# val. Train-loader only.
+spec_augment:
+  enabled: false
+  prob: 0.5                # per-sample probability of applying any masking
+  time_mask_count: 2       # number of time spans to blank -> SILENCE
+  time_mask_max: 20        # max span length in frames (12.5 Hz -> ~1.6 s)
+  codebook_drop_count: 1   # number of whole codebooks to blank (never all)

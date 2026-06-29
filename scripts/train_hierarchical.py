@@ -1130,6 +1130,17 @@ def main():
         batch_pad_to=batch_pad_to,
         expected_num_codebooks=expected_codebooks,
     )
+    # Phase E: a SEPARATE train collator carries SpecAugment (input-stream masking);
+    # the shared `collator` above stays clean for validation. No-op when disabled.
+    _sa_cfg = cfg.get("spec_augment")
+    train_collator = InterleavedCollator(
+        pad_to=pad_to,
+        batch_pad_to=batch_pad_to,
+        expected_num_codebooks=expected_codebooks,
+        spec_augment=_sa_cfg,
+    ) if (_sa_cfg and _sa_cfg.get("enabled")) else collator
+    if _sa_cfg and _sa_cfg.get("enabled") and is_main:
+        print(f"  [spec-augment] ON (train only): {_sa_cfg}", flush=True)
     if args.dataset_mode == "streaming":
         if not cfg["data"]["train_split"]:
             raise ValueError("train_split required in streaming mode")
@@ -1225,7 +1236,7 @@ def main():
         train_loader = torch.utils.data.DataLoader(
             train_ds,
             batch_sampler=bucket_batch_sampler,
-            collate_fn=collator,
+            collate_fn=train_collator,
             num_workers=num_workers,
             pin_memory=cfg["data"]["pin_memory"] and not is_tpu,
             persistent_workers=use_persistent,
@@ -1237,7 +1248,7 @@ def main():
             batch_size=cfg["train"]["batch_size"],
             shuffle=(train_sampler is None),
             sampler=train_sampler,
-            collate_fn=collator,
+            collate_fn=train_collator,
             num_workers=num_workers,
             pin_memory=cfg["data"]["pin_memory"] and not is_tpu,
             persistent_workers=use_persistent,
