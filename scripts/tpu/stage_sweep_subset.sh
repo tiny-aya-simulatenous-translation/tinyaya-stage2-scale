@@ -51,8 +51,18 @@ if [ "$n_pt" -lt $((N / 2)) ]; then
     exit 1
 fi
 
-echo "==> [4/5] place the subset split (train.jsonl = the subset) + val"
-cp "$DATA_DIR/splits/train_sweep_${N}.jsonl" "$STAGE/splits/train.jsonl"
+echo "==> [4/5] place the subset split (FILTERED to .pt that actually extracted) + val"
+# A fraction of split rows can reference .pt not present in the published
+# tarballs; the dataset torch.load()s directly and would crash on a miss. Keep
+# only rows whose .pt is in the staged encoded/ dir so the subset is consistent.
+python3 -c "
+import json, os
+present = {f for f in os.listdir('$STAGE/encoded') if f.endswith('.pt')}
+rows = [json.loads(l) for l in open('$DATA_DIR/splits/train_sweep_${N}.jsonl') if l.strip()]
+keep = [r for r in rows if os.path.basename(r['pt_path']) in present]
+open('$STAGE/splits/train.jsonl','w').write(''.join(json.dumps(r)+chr(10) for r in keep))
+print(f'  train.jsonl filtered: {len(rows)} -> {len(keep)} (present .pt={len(present)})')
+"
 cp "$DATA_DIR/splits/val.jsonl" "$STAGE/splits/val.jsonl"
 
 echo "==> [5/5] pack + upload to $OUT_GS"
