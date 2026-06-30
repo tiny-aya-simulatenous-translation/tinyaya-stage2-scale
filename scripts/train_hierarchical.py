@@ -1089,16 +1089,27 @@ def main():
     # model is broken. We load weights into the unwrapped model, then FSDP wraps
     # the correctly-initialized params. Optimizer state is NOT restored (Adam
     # momentum restarts) but model weights are correct.
-    from src.training.checkpointing import find_latest_checkpoint, load_checkpoint
+    from src.training.checkpointing import (
+        find_latest_checkpoint,
+        load_checkpoint,
+        read_checkpoint_metadata,
+    )
 
     start_step = 0
+    resume_wandb_run_id = None
     resume_dir = args.resume
     if resume_dir == "auto":
         resume_dir = find_latest_checkpoint(cfg["logging"]["save_dir"])
     if resume_dir:
         start_step = load_checkpoint(model, None, None, resume_dir)
+        # Recover the original W&B run id so a preempted run continues the SAME
+        # dashboard run on restart instead of fragmenting into a new run.
+        resume_wandb_run_id = read_checkpoint_metadata(resume_dir).get("wandb_run_id")
         if is_main:
-            print(f"Loaded model weights from {resume_dir} (step {start_step})")
+            _msg = f"Loaded model weights from {resume_dir} (step {start_step})"
+            if resume_wandb_run_id:
+                _msg += f"; will resume W&B run {resume_wandb_run_id}"
+            print(_msg)
 
     model = model.to(device)
 
@@ -1494,10 +1505,13 @@ def main():
                 )
                 use_wandb = False
         elif is_main:
-            # Primary host: create the run, publish run-id.
+            # Primary host: create (or RESUME) the run, publish run-id. On a spot
+            # restart resume_wandb_run_id continues the same dashboard run.
             wandb.init(
                 project=cfg["logging"]["wandb_project"],
                 name=cfg["logging"]["wandb_run_name"],
+                id=resume_wandb_run_id or None,
+                resume="allow" if resume_wandb_run_id else None,
                 config=_run_config,
                 tags=_wandb_tags,
                 notes=_wandb_notes,
@@ -1565,13 +1579,15 @@ def main():
     # isolated dir with no step-filename collisions across the sequential sweep. All
     # hosts share one run id via the GCS rendezvous, so the path is identical on
     # every host of the multi-host slice.
-    if args.sweep:
-        if run_id is None and use_wandb and getattr(wandb, "run", None) is not None:
-            run_id = wandb.run.id
-        if run_id:
-            save_dir = save_dir.rstrip("/") + "/" + str(run_id)
-            if is_main:
-                print(f"[sweep] namespaced save_dir -> {save_dir}", flush=True)
+    # Capture the primary's W&B run id (also shared to workers via the rendezvous):
+    # used to namespace sweep checkpoint dirs AND saved into each checkpoint so a
+    # preempted run can resume the same W&B run (see resume block above).
+    if run_id is None and use_wandb and getattr(wandb, "run", None) is not None:
+        run_id = wandb.run.id
+    if args.sweep and run_id:
+        save_dir = save_dir.rstrip("/") + "/" + str(run_id)
+        if is_main:
+            print(f"[sweep] namespaced save_dir -> {save_dir}", flush=True)
     _save_is_gcs = save_dir.startswith("gs://")
     if not _save_is_gcs:
         Path(save_dir).mkdir(parents=True, exist_ok=True)
@@ -2492,7 +2508,8 @@ def main():
                     scheduler,
                     step,
                     str(best_dir),
-                    extra_state={"best_val_loss": best_val, "config": cfg},
+                    extra_state={"best_val_loss": best_val, "config": cfg,
+                                 "wandb_run_id": run_id},
                     is_main=is_main,
                 )
                 if is_main:
@@ -2520,7 +2537,7 @@ def main():
                 scheduler,
                 step,
                 str(d),
-                extra_state={"config": cfg},
+                extra_state={"config": cfg, "wandb_run_id": run_id},
                 is_main=is_main,
                 keep_local_dir=keep_local_dir,
             )
@@ -2556,7 +2573,7 @@ def main():
             scheduler,
             step,
             str(d),
-            extra_state={"config": cfg, "final": True},
+            extra_state={"config": cfg, "final": True, "wandb_run_id": run_id},
             is_main=is_main,
             keep_local_dir=keep_local_dir,
         )
