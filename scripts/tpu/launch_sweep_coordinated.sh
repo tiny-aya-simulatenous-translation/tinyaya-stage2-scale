@@ -44,6 +44,8 @@ CONFIG_FILE="${CONFIG_FILE:-configs/tpu/stage2_tpu_v6e16_scale_proxy.yaml}"
 NUM_HOSTS="${NUM_HOSTS:-4}"                   # v6e-16 = 4 hosts
 MAX_TRIALS="${MAX_TRIALS:-0}"
 WANDB_ENTITY_PROJECT="${WANDB_ENTITY_PROJECT:-cataluna84/tinyaya-stage2-tpu}"  # for metric reads
+SAVE_DIR="${SAVE_DIR:-gs://$BUCKET/checkpoints/stage2-scale-sweep}"  # must match proxy logging.save_dir
+FINAL_STEP="${FINAL_STEP:-1500}"              # proxy max_steps -> checkpoint-based completion check
 REPO_DIR="/opt/tinyaya"
 CONTROL_PREFIX="gs://$BUCKET/sweep-control/$NAME"
 
@@ -80,8 +82,14 @@ ssh_all "set -e; gcloud storage cp '$GCS_TARBALL' /tmp/sweep-code.tar.gz && \
     echo \"[\$(hostname)] code refreshed\""
 
 # ----- 3. start the per-host loop on ALL hosts (detached tmux, as ROOT) -----
+# Kill BOTH the old sweephost tmux AND any surviving train_hierarchical child
+# first: `tmux kill-session` only SIGHUPs the session, leaving a train process
+# (which ignores SIGHUP under `uv run`) as a HUNG zombie holding the mesh -- the
+# exact desync that let a relaunched coordinator time out on already-past hosts.
 echo "==> [3/4] starting host loops (tmux 'sweephost') on all hosts"
 ssh_all "sudo -H tmux kill-session -t sweephost 2>/dev/null || true; \
+    sudo pkill -9 -f 'scripts/train_hierarchical.py' 2>/dev/null || true; \
+    sleep 2; \
     sudo -H tmux new-session -d -s sweephost \
     \"CONTROL_PREFIX='$CONTROL_PREFIX' CONFIG_FILE='$CONFIG_FILE' \
       bash '$REPO_DIR/scripts/tpu/sweep_host_loop.sh'\"; \
@@ -102,6 +110,7 @@ ssh_0 "sudo -H tmux kill-session -t sweepcoord 2>/dev/null || true; \
       uv run python -u scripts/tpu/sweep_coordinator.py $COORD_ARGS \
         --control-prefix '$CONTROL_PREFIX' --wandb-project '$WANDB_ENTITY_PROJECT' \
         --num-hosts $NUM_HOSTS --max-trials $MAX_TRIALS \
+        --save-dir '$SAVE_DIR' --final-step $FINAL_STEP \
         2>&1 | tee -a /tmp/coord.log\"; \
     sleep 1; sudo tmux ls 2>/dev/null | grep -q sweepcoord && echo 'coordinator OK' || echo 'coordinator FAILED'"
 

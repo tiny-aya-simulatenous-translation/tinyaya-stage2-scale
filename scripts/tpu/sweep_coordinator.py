@@ -47,6 +47,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
+import re
 import subprocess
 import sys
 import time
@@ -151,46 +152,89 @@ def _wait_for_hosts(control_prefix: str, index: int, num_hosts: int,
     return False
 
 
+def _trial_run_id(control_prefix: str, index: int) -> str:
+    """DETERMINISTIC W&B run id for trial ``index`` (e.g. ``scalegridt1``).
+
+    Derived purely from the sweep name (control-prefix basename) + index, so it
+    is IDENTICAL across coordinator restarts. This is the linchpin of idempotent
+    recovery: a relaunched coordinator computes the same id -> same control
+    payload -> same checkpoint dir -> reads the right metric. A random
+    ``wandb.util.generate_id()`` (the old behaviour) desynced every relaunch
+    (coordinator looked for id X while training used id Y).
+    """
+    name = control_prefix.rstrip("/").split("/")[-1]
+    slug = re.sub(r"[^a-z0-9]", "", name.lower())[:16] or "trial"
+    return f"{slug}t{index}"
+
+
+def _read_metric_from_checkpoint(save_dir: str, run_id: str,
+                                 metric: str = "val/composite") -> float | None:
+    """Read the trial's best metric from its ``best_by_val`` checkpoint metadata.
+
+    Bulletproof: no W&B API dependency (which desynced on run-id mismatch and
+    returned None). For the AUDIO-ONLY objective ``best_val_loss`` in the
+    checkpoint metadata IS ``val/composite`` (verified: both = 5.4565 for the
+    baseline trial).
+    """
+    meta_uri = save_dir.rstrip("/") + f"/{run_id}/best_by_val/metadata.json"
+    out = _gsutil("cat", meta_uri, check=False, capture=True)
+    if out.returncode != 0 or not out.stdout.strip():
+        return None
+    try:
+        return float(json.loads(out.stdout).get("best_val_loss"))
+    except Exception:  # noqa: BLE001 -- best-effort metric read
+        return None
+
+
 def _read_trial_metric(entity: str, project: str, run_id: str,
                        metric: str = "val/composite") -> float | None:
-    """Read the trial's best metric from its W&B run summary (public API)."""
+    """Fallback: read the trial's best metric from its W&B run summary."""
     try:
         import wandb
 
         api = wandb.Api()
         run = api.run(f"{entity}/{project}/{run_id}")
         val = run.summary.get(metric)
+        if isinstance(val, dict):          # summary stores {"min": x} for tracked metrics
+            val = val.get("min", next(iter(val.values()), None))
         return float(val) if val is not None else None
     except Exception as e:  # noqa: BLE001 -- best-effort metric read
         print(f"[coord] WARN: could not read {metric} for {run_id}: {e}", flush=True)
         return None
 
 
-def _new_run_id() -> str:
-    import wandb
+def _trial_completed(save_dir: str, run_id: str, final_step: int) -> bool:
+    """True iff trial ``run_id`` reached its FULL horizon (final-step checkpoint).
 
-    return wandb.util.generate_id()
-
-
-def _trial_completed(control_prefix: str, index: int) -> bool:
-    """True if trial ``index`` already has a completion marker in GCS.
-
-    Lets the coordinator survive a spot reboot mid-sweep: on restart it
-    re-enumerates the (deterministic) grid and skips trials already finished,
-    instead of re-running the whole sweep from trial 1.
+    Checks the durable GCS checkpoint (``step_<final>/metadata.json``), NOT a
+    control-file marker -- so it survives marker loss AND correctly treats a
+    trial that was KILLED early (e.g. at step 500 of 1500) as NOT complete, so a
+    resume re-runs it instead of accepting a half-trained structure.
     """
-    marker = control_prefix.rstrip("/") + f"/completed/trial_{index}"
-    out = _gsutil("ls", marker, check=False, capture=True)
+    final_meta = save_dir.rstrip("/") + f"/{run_id}/step_{final_step:06d}/metadata.json"
+    out = _gsutil("ls", final_meta, check=False, capture=True)
     return out.returncode == 0 and bool(out.stdout.strip())
 
 
-def _mark_completed(control_prefix: str, index: int, metric: float | None) -> None:
+def _mark_completed(control_prefix: str, index: int, run_id: str,
+                    metric: float | None) -> None:
     import tempfile
 
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
-        json.dump({"index": index, "metric": metric}, f)
+        json.dump({"index": index, "run_id": run_id, "metric": metric}, f)
         local = f.name
     _gsutil("cp", local, control_prefix.rstrip("/") + f"/completed/trial_{index}")
+
+
+def _print_leaderboard(leaderboard: list, metric: str) -> None:
+    ranked = sorted((e for e in leaderboard if e[0] is not None), key=lambda e: e[0])
+    print(f"[coord] === LEADERBOARD (by {metric}, lower=better) ===", flush=True)
+    for rank, (m, index, run_id, params) in enumerate(ranked, 1):
+        tm = params.get("target_modules")
+        print(f"[coord]   #{rank}  {metric}={m:.4f}  trial={index}  run={run_id}  "
+              f"target_modules={tm}", flush=True)
+    for (m, index, run_id, params) in (e for e in leaderboard if e[0] is None):
+        print(f"[coord]   (no metric) trial={index}  run={run_id}", flush=True)
 
 
 # --------------------------------------------------------------------------
@@ -231,11 +275,12 @@ def run(args) -> int:
 
     trials = _iter_grid_trials(args) if args.stage == "grid" else _iter_bayes_trials(args)
 
+    leaderboard: list = []   # (metric, index, run_id, params)
     index = 0
     for params, _ctrl in trials:
         index += 1
         cli_args = build_trial_args(params)
-        run_id = f"dryrun-{index}" if args.dry_run else _new_run_id()
+        run_id = f"dryrun-{index}" if args.dry_run else _trial_run_id(args.control_prefix, index)
         payload = {
             "index": index,
             "args": cli_args,
@@ -243,28 +288,41 @@ def run(args) -> int:
             "sweep_id": args.sweep_id or "",
             "stop": False,
         }
-        print(f"[coord] trial {index}: {params}", flush=True)
+        print(f"[coord] trial {index} (run {run_id}): {params}", flush=True)
         print(f"[coord]   args: {' '.join(cli_args)}", flush=True)
         if args.dry_run:
             continue
         if args.max_trials and index > args.max_trials:
             break
-        # Resumability: skip trials already finished before a coordinator reboot.
-        if _trial_completed(args.control_prefix, index):
-            print(f"[coord] trial {index} already completed -- skipping", flush=True)
+        # Resumability (bulletproof, marker-independent): if this trial's FINAL-step
+        # checkpoint already exists, it's genuinely done -- record its metric + skip.
+        if _trial_completed(args.save_dir, run_id, args.final_step):
+            metric = _read_metric_from_checkpoint(args.save_dir, run_id, args.metric)
+            print(f"[coord] trial {index} already complete -> {args.metric}={metric} (skip)", flush=True)
+            leaderboard.append((metric, index, run_id, params))
             continue
 
         _publish_trial(args.control_prefix, payload)
-        ok = _wait_for_hosts(args.control_prefix, index, args.num_hosts)
+        ok = _wait_for_hosts(args.control_prefix, index, args.num_hosts,
+                             timeout_s=args.host_timeout_s)
         if not ok:
-            print(f"[coord] ERROR: trial {index} timed out waiting for hosts", flush=True)
-            break
-        metric = _read_trial_metric(entity, project, run_id, args.metric)
-        _mark_completed(args.control_prefix, index, metric)
+            # Host timeout does NOT mean the sweep is done. Writing stop:true here
+            # was the false-complete bug. Exit non-zero WITHOUT stop so the
+            # supervisor relaunches and RESUMES: completed trials are skipped and
+            # this trial (deterministic run id) is retried cleanly.
+            print(f"[coord] ERROR: trial {index} timed out waiting for hosts -- "
+                  f"aborting WITHOUT stop (supervisor resumes)", flush=True)
+            return 1
+        metric = (_read_metric_from_checkpoint(args.save_dir, run_id, args.metric)
+                  or _read_trial_metric(entity, project, run_id, args.metric))
+        _mark_completed(args.control_prefix, index, run_id, metric)
+        leaderboard.append((metric, index, run_id, params))
         print(f"[coord] trial {index} done -> {args.metric}={metric}", flush=True)
 
+    # Reached only on natural grid exhaustion (or dry-run / max-trials cap).
     if not args.dry_run:
         _publish_trial(args.control_prefix, {"index": index + 1, "stop": True})
+        _print_leaderboard(leaderboard, args.metric)
     print(f"[coord] sweep complete ({index} trials).", flush=True)
     return 0
 
@@ -282,6 +340,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--metric", default="val/composite")
     p.add_argument("--num-hosts", type=int, default=4, help="hosts on the slice (v6e-16 = 4)")
     p.add_argument("--max-trials", type=int, default=0, help="cap trials (0 = all)")
+    p.add_argument("--save-dir",
+                   default="gs://tinyaya-stage2-tpu/checkpoints/stage2-scale-sweep",
+                   help="checkpoint root (must match the proxy config's logging.save_dir); "
+                        "used for checkpoint-based resume + metric reads")
+    p.add_argument("--final-step", type=int, default=1500,
+                   help="the run's max_steps -- a trial is 'complete' iff step_<final>/ exists")
+    p.add_argument("--host-timeout-s", type=int, default=4 * 3600,
+                   help="per-trial wait for all hosts' done-markers before aborting-to-resume")
     p.add_argument("--dry-run", action="store_true",
                    help="print the trial plan + per-trial args; write nothing, launch nothing")
     return p

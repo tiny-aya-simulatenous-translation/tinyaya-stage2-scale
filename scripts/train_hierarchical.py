@@ -1514,7 +1514,12 @@ def main():
                 # pre-generates it so it can read this trial's metric back + so the
                 # checkpoint dir is namespaced by the same id). else wandb generates.
                 id=resume_wandb_run_id or os.environ.get("WANDB_RUN_ID") or None,
-                resume="allow" if resume_wandb_run_id else None,
+                # resume="allow" whenever an id is pinned (resumed OR coordinator's
+                # deterministic WANDB_RUN_ID) so a RELAUNCH of a killed sweep trial
+                # re-attaches to the same run instead of erroring on a duplicate id.
+                resume=("allow"
+                        if (resume_wandb_run_id or os.environ.get("WANDB_RUN_ID"))
+                        else None),
                 config=_run_config,
                 tags=_wandb_tags,
                 notes=_wandb_notes,

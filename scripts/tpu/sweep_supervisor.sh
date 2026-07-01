@@ -28,6 +28,14 @@ WANDB_URL="${WANDB_URL:-https://wandb.ai/cataluna84/tinyaya-stage2-tpu}"
 POLL_S="${POLL_S:-180}"
 HEARTBEAT_EVERY="${HEARTBEAT_EVERY:-10}"      # heartbeat every N loops (~30 min)
 CONTROL_PREFIX="gs://$BUCKET/sweep-control/$NAME"
+# --- for the coordinator-ONLY relaunch (restart the driver without touching a
+#     healthy in-flight trial). Must mirror launch_sweep_coordinated.sh. ---
+TPU_REPO_DIR="${TPU_REPO_DIR:-/opt/tinyaya}"
+SWEEP_YAML="${SWEEP_YAML:-sweeps/sweep_stage2_scale_grid.yaml}"
+WANDB_ENTITY_PROJECT="${WANDB_ENTITY_PROJECT:-cataluna84/tinyaya-stage2-tpu}"
+SAVE_DIR="${SAVE_DIR:-gs://$BUCKET/checkpoints/stage2-scale-sweep}"
+FINAL_STEP="${FINAL_STEP:-1500}"
+NUM_HOSTS="${NUM_HOSTS:-4}"
 
 ntfy() { curl -s -H "Title: TinyAya sweep" -d "$1" "https://ntfy.sh/$NTFY_TOPIC" >/dev/null 2>&1 || true; }
 
@@ -59,6 +67,39 @@ coord_alive() {
 }
 sweep_done() { gsutil cat "$CONTROL_PREFIX/current_trial.json" 2>/dev/null | grep -q '"stop": true'; }
 
+# Resilient training liveness: YES if ANY host has a live train process. Used to
+# distinguish "coordinator died but a trial is still training fine" (relaunch the
+# coordinator ONLY -- never kill a healthy trial mid-checkpoint) from "nothing is
+# running" (full clean relaunch). Killing a progressing trial to restart the
+# driver was what crashed the first attempt mid-checkpoint.
+training_alive() {
+    for _ in 1 2 3; do
+        if gcloud compute tpus tpu-vm ssh "$NODE_ID" --zone="$ZONE" --project="$PROJECT_ID" --worker=all \
+             --command='sudo pgrep -f "scripts/train_hierarchical.py" >/dev/null 2>&1 && echo YES || echo NO' 2>/dev/null | grep -q YES; then
+            return 0
+        fi
+        sleep 10
+    done
+    return 1
+}
+
+# Restart ONLY the host-0 coordinator tmux (no pkill, no host-loop restart). The
+# relaunched coordinator re-enumerates the grid, skips completed trials by their
+# durable checkpoints, and -- via DETERMINISTIC run ids -- re-attaches to the
+# in-flight trial's metric when the already-running hosts finish it.
+relaunch_coordinator_only() {
+    ntfy "coordinator down but trial still training on $NODE_ID -- relaunching COORDINATOR ONLY"
+    gcloud compute tpus tpu-vm ssh "$NODE_ID" --zone="$ZONE" --project="$PROJECT_ID" --worker=0 \
+      --command="sudo -H tmux kill-session -t sweepcoord 2>/dev/null || true; \
+        sudo -H tmux new-session -d -s sweepcoord \
+        \"cd $TPU_REPO_DIR; export PATH=/root/.local/bin:\\\$PATH; \
+          export WANDB_API_KEY=\\\$(gcloud secrets versions access latest --secret=wandb-api-key 2>/dev/null); \
+          uv run python -u scripts/tpu/sweep_coordinator.py --stage grid --sweep-yaml '$SWEEP_YAML' \
+            --control-prefix '$CONTROL_PREFIX' --wandb-project '$WANDB_ENTITY_PROJECT' \
+            --num-hosts $NUM_HOSTS --max-trials 0 --save-dir '$SAVE_DIR' --final-step $FINAL_STEP \
+            2>&1 | tee -a /tmp/coord.log\"" 2>/dev/null || true
+}
+
 launch_sweep() {
     ntfy "relaunching coordinated sweep on $NODE_ID"
     # kill any stray single-run smoke, then start host loops + coordinator.
@@ -81,7 +122,7 @@ reprovision() {
 }
 
 ntfy "supervisor started for $NAME on $NODE_ID -- $WANDB_URL"
-i=0; down=0; failed=0
+i=0; down=0; failed=0; coordonly=0
 while true; do
     i=$((i + 1))
     if sweep_done; then
@@ -93,12 +134,21 @@ while true; do
         ACTIVE|READY)
             failed=0
             if coord_alive; then
-                down=0
+                down=0; coordonly=0
                 [ $((i % HEARTBEAT_EVERY)) -eq 0 ] && ntfy "alive: sweep running on $NODE_ID. $WANDB_URL"
             else
                 down=$((down + 1))   # require 2 consecutive misses (each already retried 3x)
                 if [ "$down" -ge 2 ]; then
-                    ntfy "coordinator down x$down -- relaunching"; launch_sweep; down=0
+                    if training_alive && [ "$coordonly" -lt 2 ]; then
+                        # Trial still training -> restart the driver only, don't kill it.
+                        coordonly=$((coordonly + 1))
+                        relaunch_coordinator_only; down=0
+                    else
+                        # No live training (or coord-only failed twice => hung trial):
+                        # full clean relaunch (kills stray/hung procs, restarts all).
+                        ntfy "coordinator down x$down; training dead/hung -- FULL relaunch"
+                        launch_sweep; down=0; coordonly=0
+                    fi
                 fi
             fi
             ;;
