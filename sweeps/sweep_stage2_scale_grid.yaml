@@ -21,6 +21,8 @@
 #   wandb sweep sweeps/sweep_stage2_scale_grid.yaml      # -> SWEEP_ID
 #   # then launch the coordinator on the slice (detached tmux) -- see runbook.
 
+entity: cataluna84
+project: tinyaya-stage2-tpu
 program: scripts/train_hierarchical.py
 method: grid
 metric:

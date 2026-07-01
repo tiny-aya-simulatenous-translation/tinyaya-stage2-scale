@@ -68,13 +68,18 @@ while true; do
     echo "[trial $index] args: ${TRIAL_ARGS[*]}" | tee -a "$LOG"
 
     ulimit -n 1048576
+    # WANDB_RUN_ID: the coordinator's pre-generated id (train honors it -> its run
+    # id + checkpoint dir + the metric the coordinator reads all match). Only set
+    # WANDB_SWEEP_ID when NON-empty -- wandb rejects an empty-string sweep id
+    # ("Sweep ID cannot be empty"), which is the grid case (no server-side sweep).
+    export WANDB_RUN_ID="$run_id"
+    if [ -n "$sweep_id" ]; then export WANDB_SWEEP_ID="$sweep_id"; else unset WANDB_SWEEP_ID; fi
     DEVICE_BACKEND=tpu PJRT_DEVICE=TPU \
     XLA_USE_BF16=0 XLA_DOWNCAST_BF16=0 XLA_DISABLE_FUNCTIONALIZATION=0 XLA_NO_SPECIAL_SCALARS=1 \
     LIBTPU_INIT_ARGS='--megascale_grpc_enable_xor_tracer=false --xla_tpu_enable_flash_attention=false' \
     PT_XLA_DEBUG_LEVEL=1 \
     TPU_STRATEGY="$TPU_STRATEGY" \
     LD_LIBRARY_PATH="$LIBPYTHON_DIR:${LD_LIBRARY_PATH:-}" \
-    WANDB_RUN_ID="$run_id" WANDB_SWEEP_ID="$sweep_id" \
     PYTHONUNBUFFERED=1 \
     uv run python -u scripts/train_hierarchical.py \
         --config "$CONFIG_FILE" \

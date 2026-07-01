@@ -1510,7 +1510,10 @@ def main():
             wandb.init(
                 project=cfg["logging"]["wandb_project"],
                 name=cfg["logging"]["wandb_run_name"],
-                id=resume_wandb_run_id or None,
+                # Prefer a resumed id; else honor WANDB_RUN_ID (the sweep coordinator
+                # pre-generates it so it can read this trial's metric back + so the
+                # checkpoint dir is namespaced by the same id). else wandb generates.
+                id=resume_wandb_run_id or os.environ.get("WANDB_RUN_ID") or None,
                 resume="allow" if resume_wandb_run_id else None,
                 config=_run_config,
                 tags=_wandb_tags,

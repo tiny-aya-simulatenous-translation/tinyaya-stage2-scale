@@ -43,6 +43,7 @@ SWEEP_YAML="${SWEEP_YAML:-sweeps/sweep_stage2_scale_grid.yaml}"
 CONFIG_FILE="${CONFIG_FILE:-configs/tpu/stage2_tpu_v6e16_scale_proxy.yaml}"
 NUM_HOSTS="${NUM_HOSTS:-4}"                   # v6e-16 = 4 hosts
 MAX_TRIALS="${MAX_TRIALS:-0}"
+WANDB_ENTITY_PROJECT="${WANDB_ENTITY_PROJECT:-cataluna84/tinyaya-stage2-tpu}"  # for metric reads
 REPO_DIR="/opt/tinyaya"
 CONTROL_PREFIX="gs://$BUCKET/sweep-control/$NAME"
 
@@ -71,33 +72,38 @@ ssh_0()   { gcloud compute tpus tpu-vm ssh "$NODE_ID" --zone="$ZONE" --project="
 
 # ----- 2. refresh code on every host (overlay onto /opt/tinyaya) -----
 echo "==> [2/4] fetching code on all hosts"
+# NB: /opt/tinyaya + venv + uv + data + secrets all belong to ROOT (the startup
+# script runs as root), so every remote action here runs via sudo -H (HOME=/root,
+# so uv at /root/.local/bin and LIBPYTHON under /root/.local/share resolve).
 ssh_all "set -e; gcloud storage cp '$GCS_TARBALL' /tmp/sweep-code.tar.gz && \
-    tar -xzf /tmp/sweep-code.tar.gz -C '$REPO_DIR' && rm -f /tmp/sweep-code.tar.gz && \
+    sudo tar -xzf /tmp/sweep-code.tar.gz -C '$REPO_DIR' && rm -f /tmp/sweep-code.tar.gz && \
     echo \"[\$(hostname)] code refreshed\""
 
-# ----- 3. start the per-host loop on ALL hosts (detached tmux) -----
+# ----- 3. start the per-host loop on ALL hosts (detached tmux, as ROOT) -----
 echo "==> [3/4] starting host loops (tmux 'sweephost') on all hosts"
-ssh_all "tmux kill-session -t sweephost 2>/dev/null || true; \
-    tmux new-session -d -s sweephost \
+ssh_all "sudo -H tmux kill-session -t sweephost 2>/dev/null || true; \
+    sudo -H tmux new-session -d -s sweephost \
     \"CONTROL_PREFIX='$CONTROL_PREFIX' CONFIG_FILE='$CONFIG_FILE' \
       bash '$REPO_DIR/scripts/tpu/sweep_host_loop.sh'\"; \
-    echo \"[\$(hostname)] sweephost started\""
+    sleep 1; sudo tmux ls 2>/dev/null | grep -q sweephost && echo \"[\$(hostname)] sweephost OK\" || echo \"[\$(hostname)] sweephost FAILED\""
 
 # ----- 4. start the coordinator on host-0 (detached tmux) -----
 echo "==> [4/4] starting coordinator (tmux 'sweepcoord') on host-0"
 if [ "$STAGE" = "grid" ]; then
     COORD_ARGS="--stage grid --sweep-yaml '$SWEEP_YAML'"
+    [ -n "$SWEEP_ID" ] && COORD_ARGS="$COORD_ARGS --sweep-id '$SWEEP_ID'"
 else
     COORD_ARGS="--stage bayes --sweep-id '$SWEEP_ID'"
 fi
-ssh_0 "tmux kill-session -t sweepcoord 2>/dev/null || true; \
-    tmux new-session -d -s sweepcoord \
-    \"cd '$REPO_DIR'; export PATH=\\\$HOME/.local/bin:\\\$PATH; \
-      WANDB_API_KEY=\\\$(gcloud secrets versions access latest --secret=wandb-api-key 2>/dev/null) \
+ssh_0 "sudo -H tmux kill-session -t sweepcoord 2>/dev/null || true; \
+    sudo -H tmux new-session -d -s sweepcoord \
+    \"cd '$REPO_DIR'; export PATH=/root/.local/bin:\\\$PATH; \
+      export WANDB_API_KEY=\\\$(gcloud secrets versions access latest --secret=wandb-api-key 2>/dev/null); \
       uv run python -u scripts/tpu/sweep_coordinator.py $COORD_ARGS \
-        --control-prefix '$CONTROL_PREFIX' --num-hosts $NUM_HOSTS --max-trials $MAX_TRIALS \
+        --control-prefix '$CONTROL_PREFIX' --wandb-project '$WANDB_ENTITY_PROJECT' \
+        --num-hosts $NUM_HOSTS --max-trials $MAX_TRIALS \
         2>&1 | tee -a /tmp/coord.log\"; \
-    echo 'coordinator started'"
+    sleep 1; sudo tmux ls 2>/dev/null | grep -q sweepcoord && echo 'coordinator OK' || echo 'coordinator FAILED'"
 
 cat <<EOF
 

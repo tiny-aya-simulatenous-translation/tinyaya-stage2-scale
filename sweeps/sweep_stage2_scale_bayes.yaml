@@ -22,6 +22,8 @@
 #   python scripts/promote_sweep_winner.py --sweep <entity/project/id> \
 #       --config configs/tpu/stage2_tpu_v6e16_b256.yaml --metric val/composite
 
+entity: cataluna84
+project: tinyaya-stage2-tpu
 program: scripts/train_hierarchical.py
 method: bayes
 metric:
